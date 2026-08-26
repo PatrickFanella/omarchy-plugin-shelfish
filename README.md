@@ -26,6 +26,8 @@ Add the Shelfish bar widget through Omarchy's bar settings if it is not added au
 
 Select a group icon to reveal that group's widgets. Select it again to close the group. Right-click a group icon to open settings. Middle-click one to close all groups.
 
+The available-plugin list also includes a `Shelfish settings` shortcut. Add it to any group to place a second settings icon beside that group. This shortcut opens the manager directly and does not toggle or reveal the group. The primary Shelfish settings icon remains a stable anchor and stays outside groups.
+
 Shelfish can reveal a group when a member's watched status changes. Advanced status paths use `plugin.id=path|nested.path;other.id=count`. Shelfish also reads explicit `shelfishStatus` and legacy `omatenderStatus` properties. It does not infer status from unrelated widget internals. Per-widget policies can disable automatic reveal or override its duration.
 
 ## Layout changes

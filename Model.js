@@ -208,8 +208,13 @@ function moveWidget(config, groupId, widgetId, offset) {
 function allWidgetIds(config) {
   var values = []
   var groups = config && config.groups ? config.groups : []
-  for (var i = 0; i < groups.length; i++) values = values.concat(groups[i].widgets || [])
+  for (var i = 0; i < groups.length; i++)
+    values = values.concat((groups[i].widgets || []).filter(function(id) { return !isSettingsShortcut(id) }))
   return uniqueStrings(values)
+}
+
+function isSettingsShortcut(id) {
+  return text(id) === "shelfish.settings"
 }
 
 function widgetGroupId(config, widgetId) {
@@ -254,7 +259,7 @@ function syncGroupEntries(layout, groups, moduleName, groupPrefix, sourceDir) {
   for (var g = 0; g < groups.length; g++)
     for (var w = 0; w < groups[g].widgets.length; w++) {
       var memberId = groups[g].widgets[w]
-      if (memberId !== moduleName && memberId !== "omarchy.tray" && memberId.indexOf(groupPrefix) !== 0)
+      if (memberId !== moduleName && memberId !== "omarchy.tray" && memberId.indexOf(groupPrefix) !== 0 && !isSettingsShortcut(memberId))
         wanted[memberId] = true
     }
 
@@ -290,6 +295,11 @@ function syncGroupEntries(layout, groups, moduleName, groupPrefix, sourceDir) {
     for (var memberIndex = 0; memberIndex < group.widgets.length; memberIndex++) {
       var entries = memberEntries[group.widgets[memberIndex]]
       if (entries) members = members.concat(entries)
+      else if (isSettingsShortcut(group.widgets[memberIndex])) members.push({
+        id: groupPrefix + group.id + ".settings",
+        source: sourceDir + "/SettingsButton.qml",
+        shelfishGroupId: group.id
+      })
     }
     var groupEntry = {
       id: groupPrefix + group.id,

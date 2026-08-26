@@ -24,6 +24,7 @@ KeyboardPanel {
     var live = {}
     var slots = service ? service.slots() : []
     for (var s = 0; s < slots.length; s++) if (slots[s]) live[String(slots[s].moduleName || "")] = true
+    out.push({ id: "shelfish.settings", name: "Shelfish settings" })
     var installed = shell && shell.pluginRegistry ? shell.pluginRegistry.installedPlugins : null
     if (!installed) return out
     for (var id in installed) {

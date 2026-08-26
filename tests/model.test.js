@@ -66,4 +66,10 @@ assert.deepEqual(layout.right[3].settings, { format: "long" })
 assert.equal(Model.removeGeneratedEntries(layout, "io.github.patrickfanella.shelfish.group."), true)
 assert.deepEqual(layout.right.map(entry => entry.id), ["io.github.patrickfanella.shelfish", "clock", "clock", "mail"])
 
+const shortcutLayout = { left: [{ id: "shelfish" }], center: [], right: [] }
+assert.equal(Model.syncGroupEntries(shortcutLayout, [{ id: "one", name: "One", icon: "*", direction: "right", widgets: ["shelfish.settings"] }], "shelfish", "shelfish.group.", "/tmp/shelfish"), true)
+assert.equal(shortcutLayout.left[1].id, "shelfish.group.one")
+assert.equal(shortcutLayout.left[2].id, "shelfish.group.one.settings")
+assert.deepEqual(Model.allWidgetIds({ groups: [{ widgets: ["shelfish.settings", "clock"] }] }), ["clock"])
+
 console.log("model tests passed")

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.5 - 2026-08-26
+
+- Added a groupable Shelfish settings shortcut backed by the stable manager anchor.
+
+## 1.0.4 - 2026-08-26
+
+## 1.0.3 - 2026-08-26
+
 ## 1.0.2 - 2026-08-25
 
 - Fixed text fields sending keyboard input to the application behind the settings panel.

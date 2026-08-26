@@ -157,7 +157,14 @@ Item {
       var slot = all[s]
       if (!slot) continue
       var id = String(slot.moduleName || "")
-      if (id === "omarchy.tray" || id === moduleName || id.indexOf(groupPrefix) === 0) continue
+      if (id === "omarchy.tray" || id === moduleName) continue
+      if (id.indexOf(groupPrefix) === 0) {
+        if (id.slice(-9) === ".settings") {
+          var shortcutGroup = id.slice(groupPrefix.length, -9)
+          slot.visible = revealedGroupId === shortcutGroup
+        }
+        continue
+      }
       if (managed[id]) slot.visible = active.indexOf(id) !== -1
       else if (previous[id]) slot.visible = true
     }
