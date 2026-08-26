@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.6 - 2026-08-26
+
+- Render dynamic group and third-party plugin names as plain text.
+- Restrict cross-plugin status snapshots to bounded scalar values.
+- Cap watched paths, path depth, scalar string length, and aggregate snapshot size.
+
 ## 1.0.5 - 2026-08-26
 
 - Added a groupable Shelfish settings shortcut backed by the stable manager anchor.

@@ -30,6 +30,8 @@ The available-plugin list also includes a `Shelfish settings` shortcut. Add it t
 
 Shelfish can reveal a group when a member's watched status changes. Advanced status paths use `plugin.id=path|nested.path;other.id=count`. Shelfish also reads explicit `shelfishStatus` and legacy `omatenderStatus` properties. It does not infer status from unrelated widget internals. Per-widget policies can disable automatic reveal or override its duration.
 
+Status snapshots accept only `null`, booleans, finite numbers, and strings. Shelfish limits path count and depth, truncates scalar strings, and caps each aggregate snapshot.
+
 ## Layout changes
 
 Shelfish stores its settings on its own bar layout entry. When configuration changes, it uses Omarchy's `mutateShellConfig` API to move each configured member beside the Shelfish entry. Groups follow manager order. Members follow their order inside each group. A right-facing group uses `group icon, members`; a left-facing group uses `members, group icon`.

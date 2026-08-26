@@ -80,12 +80,25 @@ KeyboardPanel {
         Repeater {
           model: root.service ? root.service.config.groups : []
           delegate: Button {
+            id: groupTab
             required property var modelData
-            text: modelData.icon + " " + modelData.name
+            width: groupLabel.implicitWidth + Style.space(20)
+            height: Style.space(36)
+            text: ""
             selected: root.service && root.service.config.activeGroupId === modelData.id
             bordered: true
             foreground: root.foreground
             onClicked: root.service.setActiveGroup(modelData.id)
+
+            Text {
+              id: groupLabel
+              anchors.centerIn: parent
+              text: groupTab.modelData.icon + " " + groupTab.modelData.name
+              textFormat: Text.PlainText
+              color: groupTab.selected ? Style.selectedStateColor(groupTab.foreground, groupTab.accent) : groupTab.foreground
+              font.family: Style.font.family
+              font.pixelSize: Style.font.body
+            }
           }
         }
       }
@@ -219,6 +232,7 @@ KeyboardPanel {
               Text {
                 anchors.left: parent.left; anchors.right: addButton.left; anchors.verticalCenter: parent.verticalCenter
                 text: parent.modelData.name; elide: Text.ElideRight; color: root.foreground
+                textFormat: Text.PlainText
               }
               Button {
                 id: addButton
@@ -256,6 +270,7 @@ KeyboardPanel {
               Text {
                 anchors.left: parent.left; anchors.right: upButton.left; anchors.verticalCenter: parent.verticalCenter
                 text: parent.modelData.name; elide: Text.ElideRight; color: root.foreground
+                textFormat: Text.PlainText
               }
               Button {
                 id: upButton

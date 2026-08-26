@@ -7,7 +7,7 @@ const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "u
 
 assert.equal(manifest.id, "io.github.patrickfanella.shelfish")
 assert.equal(manifest.name, "Shelfish")
-assert.equal(manifest.version, "1.0.5")
+assert.equal(manifest.version, "1.0.6")
 assert.equal(manifest.author, "Patrick Fanella")
 assert.equal(manifest.license, "MIT")
 
@@ -36,6 +36,9 @@ assert.match(groupButton, /root\.service\.canToggleGroups\(\)/)
 assert.match(source, /memberEntries\[id\]\.push\(source\[i\]\)/)
 assert.match(managePanel, /^KeyboardPanel \{/m)
 assert.match(managePanel, /focusTarget: newGroupName/)
+assert.match(managePanel, /textFormat: Text\.PlainText/g)
+assert.match(source, /candidate\.length > 2048/)
+assert.match(source, /value\.slice\(0, 256\)/)
 assert.match(managePanel, /shelfish\.settings/)
 assert.match(settingsButton, /root\.service\.manage\(\)/)
 

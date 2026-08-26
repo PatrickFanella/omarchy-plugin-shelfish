@@ -41,6 +41,18 @@ const snapshot = Model.statusSnapshot(item, "clock", { clock: ["nested.value"] }
 assert.match(snapshot, /nested.value/)
 assert.match(snapshot, /shelfishStatus/)
 assert.equal(Model.valueAtPath(item, "nested.value"), 3)
+assert.equal(Model.statusSnapshot({ state: { nested: true } }, "clock", { clock: ["state"] }), "")
+assert.equal(Model.statusSnapshot({ state: ["busy"] }, "clock", { clock: ["state"] }), "")
+const longSnapshot = Model.statusSnapshot({ state: "x".repeat(1000) }, "clock", { clock: ["state"] })
+assert.equal(JSON.parse(longSnapshot)[0][1].length, 256)
+const aggregateItem = {}
+const aggregatePaths = []
+for (let i = 0; i < 16; i++) {
+  aggregateItem["status" + i] = "x".repeat(256)
+  aggregatePaths.push("status" + i)
+}
+assert.ok(Model.statusSnapshot(aggregateItem, "clock", { clock: aggregatePaths }).length <= 2048)
+assert.equal(Model.valueAtPath({ a: { b: { c: { d: { e: { f: { g: { h: { i: 1 } } } } } } } } }, "a.b.c.d.e.f.g.h.i"), undefined)
 
 const serialized = Model.serializeConfig(config)
 assert.equal(Model.normalizeConfig(serialized).groups[0].name, "Personal")

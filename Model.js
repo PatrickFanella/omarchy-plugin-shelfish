@@ -318,6 +318,7 @@ function syncGroupEntries(layout, groups, moduleName, groupPrefix, sourceDir) {
 function valueAtPath(object, path) {
   var current = object
   var parts = text(path).split(".")
+  if (text(path).length > 128 || parts.length > 8) return undefined
   for (var i = 0; i < parts.length; i++) {
     if (!parts[i] || current === undefined || current === null) return undefined
     try { current = current[parts[i]] } catch (error) { return undefined }
@@ -325,16 +326,35 @@ function valueAtPath(object, path) {
   return current
 }
 
+function statusScalar(value) {
+  if (value === null) return { accepted: true, value: null }
+  if (typeof value === "boolean") return { accepted: true, value: value }
+  if (typeof value === "number" && isFinite(value)) return { accepted: true, value: value }
+  if (typeof value === "string") return { accepted: true, value: value.slice(0, 256) }
+  return { accepted: false, value: null }
+}
+
 function statusSnapshot(item, widgetId, watchedPaths) {
   if (!item) return ""
   var paths = watchedPaths && watchedPaths[widgetId] ? watchedPaths[widgetId].slice() : []
   if (valueAtPath(item, "shelfishStatus") !== undefined) paths.push("shelfishStatus")
   else if (valueAtPath(item, "omatenderStatus") !== undefined) paths.push("omatenderStatus")
-  paths = uniqueStrings(paths)
+  paths = uniqueStrings(paths).filter(function(path) {
+    return path.length <= 128 && path.split(".").length <= 8
+  }).slice(0, 16)
   if (!paths.length) return ""
   var values = []
-  for (var i = 0; i < paths.length; i++) values.push([paths[i], valueAtPath(item, paths[i])])
-  try { return JSON.stringify(values) } catch (error) { return "" }
+  var snapshot = ""
+  for (var i = 0; i < paths.length; i++) {
+    var scalar = statusScalar(valueAtPath(item, paths[i]))
+    if (!scalar.accepted) continue
+    var candidate
+    try { candidate = JSON.stringify(values.concat([[paths[i], scalar.value]])) } catch (error) { continue }
+    if (candidate.length > 2048) break
+    values.push([paths[i], scalar.value])
+    snapshot = candidate
+  }
+  return snapshot
 }
 
 function serializeConfig(config) {
