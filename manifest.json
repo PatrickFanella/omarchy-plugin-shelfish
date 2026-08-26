@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.patrickfanella.shelfish",
+  "name": "Shelfish",
+  "version": "1.0.0",
+  "author": "Patrick Fanella",
+  "license": "MIT",
+  "description": "Organize existing Omarchy bar widgets into collapsible groups.",
+  "kinds": ["service", "bar-widget"],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "Service.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Shelfish",
+    "description": "Reveal named groups of existing bar widgets.",
+    "category": "Status",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "groups": "[{\"id\":\"default\",\"name\":\"Shelfish\",\"icon\":\"\\uf07b\",\"direction\":\"right\",\"widgets\":[]}]",
+      "activeGroupId": "default",
+      "watchedPaths": "",
+      "policies": "{}",
+      "revealSeconds": 8
+    },
+    "schema": [
+      {
+        "key": "groups",
+        "type": "string",
+        "label": "Groups (advanced)",
+        "defaultValue": "[{\"id\":\"default\",\"name\":\"Shelfish\",\"icon\":\"\\uf07b\",\"direction\":\"right\",\"widgets\":[]}]"
+      },
+      {
+        "key": "activeGroupId",
+        "type": "string",
+        "label": "Active group id",
+        "defaultValue": "default"
+      },
+      {
+        "key": "watchedPaths",
+        "type": "string",
+        "label": "Watched status paths",
+        "defaultValue": "",
+        "description": "Rules such as plugin.id=state|nested.value;other.id=count. shelfishStatus and omatenderStatus are also detected."
+      },
+      {
+        "key": "policies",
+        "type": "string",
+        "label": "Status policies",
+        "defaultValue": "{}",
+        "description": "JSON keyed by widget id. Each value may set autoReveal and revealSeconds."
+      },
+      {
+        "key": "revealSeconds",
+        "type": "integer",
+        "label": "Status reveal duration",
+        "min": 1,
+        "max": 300,
+        "defaultValue": 8
+      }
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+const assert = require("node:assert/strict")
+const fs = require("node:fs")
+const path = require("node:path")
+
+const root = path.resolve(__dirname, "..")
+const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"))
+
+assert.equal(manifest.id, "io.github.patrickfanella.shelfish")
+assert.equal(manifest.name, "Shelfish")
+assert.equal(manifest.version, "1.0.0")
+assert.equal(manifest.author, "Patrick Fanella")
+assert.equal(manifest.license, "MIT")
+
+for (const file of ["README.md", "LICENSE", "manifest.json"])
+  assert.equal(fs.statSync(path.join(root, file)).isFile(), true)
+
+const sourceFiles = ["BarWidget.qml", "GroupButton.qml", "ManagePanel.qml", "Service.qml", "Model.js", "manifest.json", "README.md"]
+const source = sourceFiles.map(file => fs.readFileSync(path.join(root, file), "utf8")).join("\n")
+const service = fs.readFileSync(path.join(root, "Service.qml"), "utf8")
+const barWidget = fs.readFileSync(path.join(root, "BarWidget.qml"), "utf8")
+const groupButton = fs.readFileSync(path.join(root, "GroupButton.qml"), "utf8")
+assert.match(service, /groupPrefix: moduleName \+ "\.group\."/)
+assert.match(source, /serviceFor\("io\.github\.patrickfanella\.shelfish"\)/)
+assert.match(barWidget, /function close\(\)/)
+assert.match(barWidget, /text: "\\uf1de"/)
+assert.match(barWidget, /tooltipText: "Shelfish settings"/)
+assert.match(service, /shell\.mutateShellConfig\(function\(shellConfig\)/)
+assert.match(service, /Model\.removeGeneratedEntries\(layout, root\.groupPrefix\)/)
+assert.match(service, /property bool suspended: false/)
+assert.match(service, /function showGroup\(id\) \{[\s\S]*?revealTimer\.stop\(\)/)
+assert.match(service, /function canToggleGroups\(\)/)
+assert.match(barWidget, /service\.suppressGroupToggles\(\)/)
+assert.match(groupButton, /root\.service\.canToggleGroups\(\)/)
+assert.match(source, /memberEntries\[id\]\.push\(source\[i\]\)/)
+
+console.log("release tests passed")
