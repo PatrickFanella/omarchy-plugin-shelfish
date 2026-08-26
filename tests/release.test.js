@@ -7,7 +7,7 @@ const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "u
 
 assert.equal(manifest.id, "io.github.patrickfanella.shelfish")
 assert.equal(manifest.name, "Shelfish")
-assert.equal(manifest.version, "1.0.1")
+assert.equal(manifest.version, "1.0.2")
 assert.equal(manifest.author, "Patrick Fanella")
 assert.equal(manifest.license, "MIT")
 
@@ -19,6 +19,7 @@ const source = sourceFiles.map(file => fs.readFileSync(path.join(root, file), "u
 const service = fs.readFileSync(path.join(root, "Service.qml"), "utf8")
 const barWidget = fs.readFileSync(path.join(root, "BarWidget.qml"), "utf8")
 const groupButton = fs.readFileSync(path.join(root, "GroupButton.qml"), "utf8")
+const managePanel = fs.readFileSync(path.join(root, "ManagePanel.qml"), "utf8")
 assert.match(service, /groupPrefix: moduleName \+ "\.group\."/)
 assert.match(source, /serviceFor\("io\.github\.patrickfanella\.shelfish"\)/)
 assert.match(barWidget, /function close\(\)/)
@@ -32,5 +33,7 @@ assert.match(service, /function canToggleGroups\(\)/)
 assert.match(barWidget, /service\.suppressGroupToggles\(\)/)
 assert.match(groupButton, /root\.service\.canToggleGroups\(\)/)
 assert.match(source, /memberEntries\[id\]\.push\(source\[i\]\)/)
+assert.match(managePanel, /^KeyboardPanel \{/m)
+assert.match(managePanel, /focusTarget: newGroupName/)
 
 console.log("release tests passed")

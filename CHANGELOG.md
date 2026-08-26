@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.2 - 2026-08-25
+
+- Fixed text fields sending keyboard input to the application behind the settings panel.
+
 ## 1.0.1 - 2026-08-25
 
 - Replaced the marketplace preview with the correct Shelfish settings screenshot.

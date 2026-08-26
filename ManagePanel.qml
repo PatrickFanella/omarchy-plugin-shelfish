@@ -3,13 +3,14 @@ import QtQuick.Controls
 import qs.Commons
 import qs.Ui
 
-PopupCard {
+KeyboardPanel {
   id: root
 
   required property var service
   readonly property var shell: bar ? bar.shell : null
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property var selectedGroup: service ? service.activeGroup : null
+  focusTarget: newGroupName
   property string chosenIcon: "\uf07b"
   readonly property var glyphs: [
     "\uf07b", "\uf07c", "\uf015", "\uf013", "\uf085", "\uf0ad", "\uf121", "\uf120",
@@ -54,7 +55,6 @@ PopupCard {
   }
 
   onSelectedGroupChanged: syncEditors()
-  onVisibleChanged: if (visible) Qt.callLater(function() { newGroupName.forceActiveFocus() })
   Component.onCompleted: syncEditors()
 
   contentWidth: fittedContentWidth(Style.space(680))
@@ -103,6 +103,7 @@ PopupCard {
         width: Style.space(180)
         height: parent.height
         focusPolicy: Qt.StrongFocus
+        activeFocusOnPress: true
         selectByMouse: true
         placeholderText: "New group name"
         onAccepted: createGroup()
@@ -128,6 +129,7 @@ PopupCard {
         text: ""
         enabled: !!root.selectedGroup
         focusPolicy: Qt.StrongFocus
+        activeFocusOnPress: true
         selectByMouse: true
         onAccepted: saveButton.save()
       }
