@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.1 - 2026-08-25
+
+- Replaced the marketplace preview with the correct Shelfish settings screenshot.
+
 ## 1.0.0 - 2026-08-25
 
 - Added named, ordered groups for existing Omarchy bar widgets.
