@@ -1,12 +1,14 @@
 import QtQuick
 import Quickshell.Io
 import "Model.js" as Model
+import "I18n.js" as I18n
 
 Item {
   id: root
 
   readonly property string moduleName: "io.github.patrickfanella.shelfish"
   readonly property string groupPrefix: moduleName + ".group."
+  readonly property string localeName: Qt.locale().name
   property var shell: null
   property var manifest: null
   property var config: Model.normalizeConfig({})
@@ -22,6 +24,8 @@ Item {
 
   readonly property var activeGroup: Model.activeGroup(config)
   readonly property int managedCount: Model.allWidgetIds(config).length
+
+  function tr(key, args) { return I18n.translate(localeName, key, args) }
 
   function entryId(entry) {
     return String(entry && typeof entry === "object" ? entry.id : entry || "")

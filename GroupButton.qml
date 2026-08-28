@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Ui
+import "I18n.js" as I18n
 
 BarWidget {
   id: root
@@ -16,6 +17,8 @@ BarWidget {
   }
   readonly property bool opened: service && service.revealedGroupId === groupId
 
+  function tr(key) { return service && typeof service.tr === "function" ? service.tr(key) : I18n.translate(Qt.locale().name, key) }
+
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
@@ -25,7 +28,7 @@ BarWidget {
     bar: root.bar
     text: root.group ? root.group.icon : "\uf07b"
     active: root.opened
-    tooltipText: root.group ? root.group.name : "Shelfish group"
+    tooltipText: root.group ? root.group.name : root.tr("group.fallback")
     onPressed: function(mouseButton) {
       if (mouseButton === Qt.RightButton && root.service) root.service.manage()
       else if (mouseButton === Qt.MiddleButton && root.service) root.service.hide()

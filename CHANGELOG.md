@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.0 - 2026-08-28
+
+- Localized Shelfish-owned controls for ten supported locales with automatic locale detection.
+
 ## 1.0.6 - 2026-08-26
 
 - Render dynamic group and third-party plugin names as plain text.

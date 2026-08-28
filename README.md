@@ -8,6 +8,12 @@ Shelfish targets Omarchy 4 with the Quattro shell. It uses the standard Omarchy 
 
 Shelfish has no third-party runtime dependencies.
 
+## Languages
+
+Shelfish supports English, German, Spanish, French, Italian, Brazilian Portuguese, Dutch, Polish, Croatian, and Simplified Chinese. It detects the locale from the shell automatically and falls back to English when necessary.
+
+Omarchy does not support localized plugin manifest fields. The plugin name, description, category, and advanced schema metadata therefore remain in English.
+
 ## Install
 
 ```sh
@@ -68,7 +74,7 @@ omarchy plugin validate .
 qmllint BarWidget.qml GroupButton.qml ManagePanel.qml Service.qml
 ```
 
-The test script runs model and release metadata tests, then runs `qmllint` and Omarchy validation when those commands are installed.
+The test script runs model, localization, and release metadata tests, then runs Omarchy validation when the CLI is installed. Standalone `qmllint` is not used because it cannot resolve all Quickshell runtime types; releases also receive a controlled live shell check.
 
 ## Known limitations
 

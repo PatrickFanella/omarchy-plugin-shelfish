@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import qs.Commons
 import qs.Ui
+import "I18n.js" as I18n
 
 KeyboardPanel {
   id: root
@@ -10,6 +11,7 @@ KeyboardPanel {
   readonly property var shell: bar ? bar.shell : null
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property var selectedGroup: service ? service.activeGroup : null
+  readonly property string localeName: service && service.localeName ? service.localeName : Qt.locale().name
   focusTarget: newGroupName
   property string chosenIcon: "\uf07b"
   readonly property var glyphs: [
@@ -18,13 +20,16 @@ KeyboardPanel {
     "\uf135", "\uf11b", "\uf001", "\uf03d", "\uf03e", "\uf02d", "\uf044", "\uf073",
     "\uf017", "\uf0f3", "\uf0e7", "\uf06d", "\uf004", "\uf005", "\uf023", "\uf2db"
   ]
+  function tr(key, args) {
+    return service && typeof service.tr === "function" ? service.tr(key, args) : I18n.translate(localeName, key, args)
+  }
   readonly property var widgetCatalogue: {
     var revision = service ? service.revision : 0
     var out = []
     var live = {}
     var slots = service ? service.slots() : []
     for (var s = 0; s < slots.length; s++) if (slots[s]) live[String(slots[s].moduleName || "")] = true
-    out.push({ id: "shelfish.settings", name: "Shelfish settings" })
+    out.push({ id: "shelfish.settings", name: tr("settings.shortcut") })
     var installed = shell && shell.pluginRegistry ? shell.pluginRegistry.installedPlugins : null
     if (!installed) return out
     for (var id in installed) {
@@ -65,7 +70,7 @@ KeyboardPanel {
     anchors.fill: parent
     spacing: Style.space(8)
 
-    Text { text: "Shelfish settings"; color: root.foreground; font.family: Style.font.family; font.pixelSize: Style.font.subtitle; font.bold: true }
+    Text { text: root.tr("settings.title"); color: root.foreground; font.family: Style.font.family; font.pixelSize: Style.font.subtitle; font.bold: true }
 
     Flickable {
       width: parent.width
@@ -119,7 +124,7 @@ KeyboardPanel {
         focusPolicy: Qt.StrongFocus
         activeFocusOnPress: true
         selectByMouse: true
-        placeholderText: "New group name"
+        placeholderText: root.tr("group.newPlaceholder")
         onAccepted: createGroup()
         function createGroup() {
           var value = text.trim()
@@ -129,7 +134,7 @@ KeyboardPanel {
           forceActiveFocus()
         }
       }
-      Button { text: "Create"; foreground: root.foreground; onClicked: newGroupName.createGroup() }
+      Button { text: root.tr("action.create"); foreground: root.foreground; onClicked: newGroupName.createGroup() }
     }
 
     Row {
@@ -150,29 +155,29 @@ KeyboardPanel {
       ComboBox {
         id: direction
         width: Style.space(100)
-        model: ["left", "right"]
+        model: [root.tr("direction.left"), root.tr("direction.right")]
       }
       Button {
         id: saveButton
-        text: "Save"
+        text: root.tr("action.save")
         foreground: root.foreground
         function save() {
           if (root.selectedGroup) root.service.updateGroup(root.selectedGroup.id,
-            { name: editName.text, icon: root.chosenIcon, direction: direction.currentText })
+            { name: editName.text, icon: root.chosenIcon, direction: direction.currentIndex === 0 ? "left" : "right" })
         }
         onClicked: save()
       }
-      Button { text: "Up"; foreground: root.foreground; onClicked: if (root.selectedGroup) root.service.moveGroup(root.selectedGroup.id, -1) }
-      Button { text: "Down"; foreground: root.foreground; onClicked: if (root.selectedGroup) root.service.moveGroup(root.selectedGroup.id, 1) }
+      Button { text: root.tr("action.up"); foreground: root.foreground; onClicked: if (root.selectedGroup) root.service.moveGroup(root.selectedGroup.id, -1) }
+      Button { text: root.tr("action.down"); foreground: root.foreground; onClicked: if (root.selectedGroup) root.service.moveGroup(root.selectedGroup.id, 1) }
       Button {
-        text: "Delete"
+        text: root.tr("action.delete")
         foreground: root.foreground
         enabled: root.service && root.service.config.groups.length > 1
         onClicked: if (root.selectedGroup) root.service.deleteGroup(root.selectedGroup.id)
       }
     }
 
-    Text { text: "GROUP ICON"; color: root.foreground; font.bold: true }
+    Text { text: root.tr("label.groupIcon"); color: root.foreground; font.bold: true }
     Flickable {
       width: parent.width
       height: Style.space(92)
@@ -220,7 +225,7 @@ KeyboardPanel {
           id: catalogueColumn
           width: parent.width
           spacing: Style.space(4)
-          Text { text: "AVAILABLE PLUGINS"; color: root.foreground; font.bold: true }
+          Text { text: root.tr("label.availablePlugins"); color: root.foreground; font.bold: true }
           Repeater {
             model: root.widgetCatalogue
             delegate: Item {
@@ -237,7 +242,7 @@ KeyboardPanel {
               Button {
                 id: addButton
                 anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
-                text: catalogueRow.selectedMember ? "Selected" : "Add"
+                text: catalogueRow.selectedMember ? root.tr("action.selected") : root.tr("action.add")
                 enabled: !catalogueRow.selectedMember && !!root.selectedGroup
                 foreground: root.foreground
                 onClicked: root.service.setWidget(root.selectedGroup.id, catalogueRow.modelData.id, true)
@@ -258,7 +263,7 @@ KeyboardPanel {
           id: selectedColumn
           width: parent.width
           spacing: Style.space(4)
-          Text { text: "SELECTED GROUP MEMBERS"; color: root.foreground; font.bold: true }
+          Text { text: root.tr("label.selectedMembers"); color: root.foreground; font.bold: true }
           Repeater {
             model: root.selectedWidgets
             delegate: Item {
@@ -275,19 +280,19 @@ KeyboardPanel {
               Button {
                 id: upButton
                 anchors.right: downButton.left; anchors.verticalCenter: parent.verticalCenter
-                text: "Up"; enabled: selectedRow.index > 0; foreground: root.foreground
+                text: root.tr("action.up"); enabled: selectedRow.index > 0; foreground: root.foreground
                 onClicked: root.service.moveWidget(root.selectedGroup.id, selectedRow.modelData.id, -1)
               }
               Button {
                 id: downButton
                 anchors.right: removeButton.left; anchors.verticalCenter: parent.verticalCenter
-                text: "Down"; enabled: selectedRow.index + 1 < root.selectedWidgets.length; foreground: root.foreground
+                text: root.tr("action.down"); enabled: selectedRow.index + 1 < root.selectedWidgets.length; foreground: root.foreground
                 onClicked: root.service.moveWidget(root.selectedGroup.id, selectedRow.modelData.id, 1)
               }
               Button {
                 id: removeButton
                 anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
-                text: "Remove"; foreground: root.foreground
+                text: root.tr("action.remove"); foreground: root.foreground
                 onClicked: root.service.setWidget(root.selectedGroup.id, selectedRow.modelData.id, false)
               }
             }
