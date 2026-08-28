@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.1 - 2026-08-28
+
+- Mentioned ten-language localization in the README and marketplace description.
+
 ## 1.1.0 - 2026-08-28
 
 - Localized Shelfish-owned controls for ten supported locales with automatic locale detection.

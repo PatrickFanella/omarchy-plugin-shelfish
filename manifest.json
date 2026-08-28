@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "id": "io.github.patrickfanella.shelfish",
   "name": "Shelfish",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "author": "Patrick Fanella",
   "license": "MIT",
-  "description": "Organize existing Omarchy bar widgets into collapsible groups.",
+  "description": "Organize Omarchy bar widgets into collapsible groups with an interface localized in ten languages.",
   "kinds": ["service", "bar-widget"],
   "keepLoaded": true,
   "entryPoints": {

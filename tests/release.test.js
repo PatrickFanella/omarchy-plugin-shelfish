@@ -7,7 +7,8 @@ const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "u
 
 assert.equal(manifest.id, "io.github.patrickfanella.shelfish")
 assert.equal(manifest.name, "Shelfish")
-assert.equal(manifest.version, "1.1.0")
+assert.equal(manifest.version, "1.1.1")
+assert.match(manifest.description, /localized in ten languages/)
 assert.equal(manifest.author, "Patrick Fanella")
 assert.equal(manifest.license, "MIT")
 

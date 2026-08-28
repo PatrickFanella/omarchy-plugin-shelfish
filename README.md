@@ -1,6 +1,6 @@
 # Shelfish
 
-Shelfish organizes existing Omarchy bar widgets into named, collapsible groups. It adds a settings button and one icon button per group while keeping each member widget's normal popup and interactions.
+Shelfish organizes existing Omarchy bar widgets into named, collapsible groups. It adds a settings button and one icon button per group while keeping each member widget's normal popup and interactions. Its interface is localized in ten languages.
 
 ## Compatibility and dependencies
 
