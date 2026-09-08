@@ -146,11 +146,40 @@ Item {
     if (widgetId === moduleName || widgetId === "omarchy.tray" || widgetId.indexOf(groupPrefix) === 0) return false
     return persist(Model.setWidgetMembership(config, groupId, widgetId, present))
   }
-  function moveWidget(groupId, widgetId, offset) { return persist(Model.moveWidget(config, groupId, widgetId, offset)) }
+  function getEffectiveBar() {
+    if (hostBar && hostBar.moduleSlots !== undefined) return hostBar
+    for (var i = 0; i < panelHosts.length; i++) {
+      if (panelHosts[i] && panelHosts[i].hostBar && panelHosts[i].hostBar.moduleSlots !== undefined)
+        return panelHosts[i].hostBar
+    }
+    if (effectiveBar && effectiveBar.moduleSlots !== undefined) return effectiveBar
+    return null
+  }
 
   function slots() {
-    var bar = effectiveBar || getHostBar()
-    return bar && Array.isArray(bar.moduleSlots) ? bar.moduleSlots : []
+    var all = []
+    for (var i = 0; i < panelHosts.length; i++) {
+      var host = panelHosts[i]
+      if (host && typeof host.getSlots === "function") {
+        var s = host.getSlots()
+        if (s && s.length) {
+          for (var j = 0; j < s.length; j++) {
+            if (all.indexOf(s[j]) === -1) all.push(s[j])
+          }
+        }
+      }
+    }
+    if (all.length > 0) return all
+
+    var bar = getEffectiveBar()
+    if (!bar || !bar.moduleSlots) return []
+    if (Array.isArray(bar.moduleSlots)) return bar.moduleSlots
+    if (bar.moduleSlots.length !== undefined) {
+      var arr = []
+      for (var k = 0; k < bar.moduleSlots.length; k++) arr.push(bar.moduleSlots[k])
+      return arr
+    }
+    return []
   }
 
   function restoreAll() {
@@ -173,7 +202,10 @@ Item {
     for (var s = 0; s < all.length; s++) {
       var slot = all[s]
       var id = slot ? String(slot.moduleName || "") : ""
-      if (restore[id]) slot.visible = true
+      if (restore[id]) {
+        slot.visible = true
+        if (slot.activeItem) slot.activeItem.visible = true
+      }
     }
     managedIds = []
     revealedGroupId = ""
@@ -201,12 +233,20 @@ Item {
       if (id.indexOf(groupPrefix) === 0) {
         if (id.slice(-9) === ".settings") {
           var shortcutGroup = id.slice(groupPrefix.length, -9)
-          slot.visible = revealedGroupId === shortcutGroup
+          var shortcutVisible = revealedGroupId === shortcutGroup
+          slot.visible = shortcutVisible
+          if (slot.activeItem) slot.activeItem.visible = shortcutVisible
         }
         continue
       }
-      if (managed[id]) slot.visible = active.indexOf(id) !== -1
-      else if (previous[id]) slot.visible = true
+      if (managed[id]) {
+        var show = active.indexOf(id) !== -1
+        slot.visible = show
+        if (slot.activeItem) slot.activeItem.visible = show
+      } else if (previous[id]) {
+        slot.visible = true
+        if (slot.activeItem) slot.activeItem.visible = true
+      }
     }
     managedIds = nextManaged
     revision++
@@ -234,6 +274,7 @@ Item {
     if (host && panelHosts.indexOf(host) === -1) {
       var next = panelHosts.slice(); next.push(host); panelHosts = next
       if (host.hostBar) registerHostBar(host.hostBar)
+      Qt.callLater(reconcileSlots)
     }
   }
   function unregisterPanelHost(host) { panelHosts = panelHosts.filter(function(item) { return item !== host }) }
@@ -261,7 +302,7 @@ Item {
   }
 
   function revealedMemberOwnsPopout() {
-    var bar = effectiveBar || getHostBar()
+    var bar = getEffectiveBar()
     var owner = bar ? bar.activePopout : null
     var group = Model.groupById(config, revealedGroupId)
     if (!owner || !group) return false
@@ -280,7 +321,11 @@ Item {
   }
 
   function statusObject() {
-    return { activeGroupId: config.activeGroupId, revealedGroupId: revealedGroupId, managedWidgets: managedCount }
+    return {
+      activeGroupId: config.activeGroupId,
+      revealedGroupId: revealedGroupId,
+      managedWidgets: managedCount
+    }
   }
 
   IpcHandler {

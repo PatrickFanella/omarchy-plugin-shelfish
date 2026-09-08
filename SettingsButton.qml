@@ -6,37 +6,60 @@ BarWidget {
   id: root
 
   property var settings: ({})
-  function findHostBar() {
-    var cur = root.parent
-    while (cur) {
-      if (cur.moduleSlots !== undefined && Array.isArray(cur.moduleSlots)) return cur
-      cur = cur.parent
+  function getSlots() {
+    var top = root
+    while (top && top.parent) top = top.parent
+    var found = []
+    if (!top) return found
+    var queue = [top]
+    while (queue.length > 0) {
+      var cur = queue.shift()
+      if (!cur) continue
+      if (cur.moduleName !== undefined && "activeItem" in cur) {
+        found.push(cur)
+      }
+      var ch = cur.children
+      if (ch && ch.length) {
+        for (var i = 0; i < ch.length; i++) queue.push(ch[i])
+      }
     }
-    return null
+    return found
   }
-  readonly property var hostBar: findHostBar()
-  readonly property var service: {
+
+  function findService() {
     if (bar && bar.shell && typeof bar.shell.serviceFor === "function") {
       var s = bar.shell.serviceFor("io.github.patrickfanella.shelfish")
       if (s) return s
     }
-    if (hostBar && hostBar.shell && typeof hostBar.shell.serviceFor === "function") {
-      return hostBar.shell.serviceFor("io.github.patrickfanella.shelfish")
+    var top = root
+    while (top && top.parent) top = top.parent
+    if (top) {
+      var queue = [top]
+      while (queue.length > 0) {
+        var cur = queue.shift()
+        if (!cur) continue
+        if (cur.registeredService) return cur.registeredService
+        var ch = cur.children
+        if (ch && ch.length) {
+          for (var i = 0; i < ch.length; i++) queue.push(ch[i])
+        }
+      }
     }
     return null
   }
+  readonly property var service: findService()
 
   function tr(key) { return service && typeof service.tr === "function" ? service.tr(key) : I18n.translate(Qt.locale().name, key) }
 
-  function syncHostBar() {
-    if (service && hostBar && typeof service.registerHostBar === "function") {
-      service.registerHostBar(hostBar)
+  function syncHost() {
+    if (service && typeof service.registerPanelHost === "function") {
+      service.registerPanelHost(root)
     }
   }
 
-  Component.onCompleted: syncHostBar()
-  onServiceChanged: syncHostBar()
-  onHostBarChanged: syncHostBar()
+  onParentChanged: syncHost()
+  Component.onCompleted: syncHost()
+  onServiceChanged: syncHost()
 
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight

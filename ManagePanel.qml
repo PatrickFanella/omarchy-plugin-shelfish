@@ -9,6 +9,7 @@ KeyboardPanel {
 
   required property var service
   readonly property var shell: {
+    if (service && service.effectiveShell) return service.effectiveShell
     if (owner && owner.hostBar && owner.hostBar.shell) return owner.hostBar.shell
     if (bar && bar.shell) return bar.shell
     return null

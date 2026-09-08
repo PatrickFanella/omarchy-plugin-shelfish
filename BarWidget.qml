@@ -9,22 +9,29 @@ BarWidget {
   property bool managerOpen: false
   property var registeredService: null
   readonly property bool opened: managerOpen
-  function findHostBar() {
-    var cur = root.parent
-    while (cur) {
-      if (cur.moduleSlots !== undefined && Array.isArray(cur.moduleSlots)) return cur
-      cur = cur.parent
+  function getSlots() {
+    var top = root
+    while (top && top.parent) top = top.parent
+    var found = []
+    if (!top) return found
+    var queue = [top]
+    while (queue.length > 0) {
+      var cur = queue.shift()
+      if (!cur) continue
+      if (cur.moduleName !== undefined && "activeItem" in cur) {
+        found.push(cur)
+      }
+      var ch = cur.children
+      if (ch && ch.length) {
+        for (var i = 0; i < ch.length; i++) queue.push(ch[i])
+      }
     }
-    return null
+    return found
   }
-  readonly property var hostBar: findHostBar()
+
   readonly property var service: {
     if (bar && bar.shell && typeof bar.shell.serviceFor === "function") {
-      var s = bar.shell.serviceFor(moduleName)
-      if (s) return s
-    }
-    if (hostBar && hostBar.shell && typeof hostBar.shell.serviceFor === "function") {
-      return hostBar.shell.serviceFor(moduleName)
+      return bar.shell.serviceFor(moduleName)
     }
     return null
   }
@@ -33,14 +40,14 @@ BarWidget {
 
   function syncRegistration() {
     if (registeredService === service) {
-      if (service && hostBar && typeof service.registerHostBar === "function") service.registerHostBar(hostBar)
+      if (service && typeof service.reconcileSlots === "function") service.reconcileSlots()
       return
     }
     if (registeredService) registeredService.unregisterPanelHost(root)
     registeredService = service
     if (registeredService) {
       registeredService.registerPanelHost(root)
-      if (hostBar && typeof registeredService.registerHostBar === "function") registeredService.registerHostBar(hostBar)
+      if (typeof registeredService.reconcileSlots === "function") registeredService.reconcileSlots()
     }
   }
   function openManager() {
@@ -63,10 +70,10 @@ BarWidget {
   implicitWidth: managerButton.implicitWidth
   implicitHeight: managerButton.implicitHeight
 
+  onParentChanged: syncRegistration()
   Component.onCompleted: syncRegistration()
   Component.onDestruction: if (registeredService) registeredService.unregisterPanelHost(root)
   onServiceChanged: syncRegistration()
-  onHostBarChanged: syncRegistration()
 
   BarIconButton {
     id: managerButton
