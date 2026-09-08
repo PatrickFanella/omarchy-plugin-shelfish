@@ -9,16 +9,39 @@ BarWidget {
   property bool managerOpen: false
   property var registeredService: null
   readonly property bool opened: managerOpen
-  readonly property var service: bar && bar.shell && typeof bar.shell.serviceFor === "function"
-    ? bar.shell.serviceFor(moduleName) : null
+  function findHostBar() {
+    var cur = root.parent
+    while (cur) {
+      if (cur.moduleSlots !== undefined && Array.isArray(cur.moduleSlots)) return cur
+      cur = cur.parent
+    }
+    return null
+  }
+  readonly property var hostBar: findHostBar()
+  readonly property var service: {
+    if (bar && bar.shell && typeof bar.shell.serviceFor === "function") {
+      var s = bar.shell.serviceFor(moduleName)
+      if (s) return s
+    }
+    if (hostBar && hostBar.shell && typeof hostBar.shell.serviceFor === "function") {
+      return hostBar.shell.serviceFor(moduleName)
+    }
+    return null
+  }
 
   function tr(key) { return service && typeof service.tr === "function" ? service.tr(key) : I18n.translate(Qt.locale().name, key) }
 
   function syncRegistration() {
-    if (registeredService === service) return
+    if (registeredService === service) {
+      if (service && hostBar && typeof service.registerHostBar === "function") service.registerHostBar(hostBar)
+      return
+    }
     if (registeredService) registeredService.unregisterPanelHost(root)
     registeredService = service
-    if (registeredService) registeredService.registerPanelHost(root)
+    if (registeredService) {
+      registeredService.registerPanelHost(root)
+      if (hostBar && typeof registeredService.registerHostBar === "function") registeredService.registerHostBar(hostBar)
+    }
   }
   function openManager() {
     if (service) {
@@ -43,6 +66,7 @@ BarWidget {
   Component.onCompleted: syncRegistration()
   Component.onDestruction: if (registeredService) registeredService.unregisterPanelHost(root)
   onServiceChanged: syncRegistration()
+  onHostBarChanged: syncRegistration()
 
   BarIconButton {
     id: managerButton

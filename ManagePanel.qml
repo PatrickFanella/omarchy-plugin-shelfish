@@ -8,7 +8,11 @@ KeyboardPanel {
   id: root
 
   required property var service
-  readonly property var shell: bar ? bar.shell : null
+  readonly property var shell: {
+    if (owner && owner.hostBar && owner.hostBar.shell) return owner.hostBar.shell
+    if (bar && bar.shell) return bar.shell
+    return null
+  }
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property var selectedGroup: service ? service.activeGroup : null
   readonly property string localeName: service && service.localeName ? service.localeName : Qt.locale().name

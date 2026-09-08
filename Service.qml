@@ -11,6 +11,9 @@ Item {
   readonly property string localeName: Qt.locale().name
   property var shell: null
   property var manifest: null
+  property var hostBar: null
+  readonly property var effectiveShell: hostBar && hostBar.shell ? hostBar.shell : root.shell
+  readonly property var effectiveBar: hostBar ? hostBar : (root.shell ? root.shell.bar : null)
   property var config: Model.normalizeConfig({})
   property string revealedGroupId: ""
   readonly property bool revealed: revealedGroupId !== ""
@@ -31,8 +34,24 @@ Item {
     return String(entry && typeof entry === "object" ? entry.id : entry || "")
   }
 
+  function getHostBar() {
+    if (hostBar) return hostBar
+    for (var i = 0; i < panelHosts.length; i++) {
+      if (panelHosts[i] && panelHosts[i].hostBar) return panelHosts[i].hostBar
+    }
+    return null
+  }
+
+  function registerHostBar(b) {
+    if (!b || b === hostBar) return
+    hostBar = b
+    loadConfig()
+    Qt.callLater(ensureGroupEntries)
+    Qt.callLater(reconcileSlots)
+  }
+
   function findEntry(configRoot) {
-    var layout = configRoot && configRoot.bar ? configRoot.bar.layout : null
+    var layout = configRoot ? (configRoot.bar ? configRoot.bar.layout : configRoot.layout) : null
     var sections = ["left", "center", "right"]
     for (var s = 0; layout && s < sections.length; s++) {
       var entries = layout[sections[s]]
@@ -44,38 +63,54 @@ Item {
     return null
   }
 
+  function getEffectiveConfig() {
+    var b = getHostBar()
+    if (b && b.shell && b.shell.shellConfig) return b.shell.shellConfig
+    if (shell && shell.shellConfig) return shell.shellConfig
+    if (b && b.barConfig) return { bar: b.barConfig }
+    if (shell && shell.barConfig) return { bar: shell.barConfig }
+    return null
+  }
+
   function sourceDir() {
     var stamped = manifest && manifest.__sourceDir ? manifest : null
     if (!stamped && shell && shell.pluginRegistry && shell.pluginRegistry.installedPlugins)
       stamped = shell.pluginRegistry.installedPlugins[moduleName]
+    var sh = effectiveShell
+    if (!stamped && sh && sh.pluginRegistry && sh.pluginRegistry.installedPlugins)
+      stamped = sh.pluginRegistry.installedPlugins[moduleName]
     return stamped && stamped.__sourceDir ? String(stamped.__sourceDir).replace(/\/$/, "") : ""
   }
 
   function syncGroupEntries(shellConfig, nextConfig) {
-    var layout = shellConfig && shellConfig.bar ? shellConfig.bar.layout : null
+    var layout = shellConfig && shellConfig.bar ? shellConfig.bar.layout : (shellConfig ? shellConfig.layout : null)
     var dir = sourceDir()
     if (!layout || !dir) return
     Model.syncGroupEntries(layout, nextConfig.groups, moduleName, groupPrefix, dir)
   }
 
   function ensureGroupEntries() {
-    if (suspended || !shell || !shell.shellConfig || typeof shell.mutateShellConfig !== "function" || !sourceDir()) return
+    var shell = effectiveShell
+    var raw = getEffectiveConfig()
+    if (suspended || !shell || !raw || typeof shell.mutateShellConfig !== "function" || !sourceDir()) return
     var copy
-    try { copy = JSON.parse(JSON.stringify(shell.shellConfig)) } catch (error) { return }
-    var before = JSON.stringify(copy.bar && copy.bar.layout)
+    try { copy = JSON.parse(JSON.stringify(raw)) } catch (error) { return }
+    var before = JSON.stringify(copy.bar ? copy.bar.layout : copy.layout)
     syncGroupEntries(copy, config)
-    if (before === JSON.stringify(copy.bar && copy.bar.layout)) return
+    if (before === JSON.stringify(copy.bar ? copy.bar.layout : copy.layout)) return
     shell.mutateShellConfig(function(shellConfig) { root.syncGroupEntries(shellConfig, root.config) })
   }
 
   function loadConfig() {
-    var next = Model.normalizeConfig(findEntry(shell ? shell.shellConfig : null) || {})
+    var raw = getEffectiveConfig()
+    var next = Model.normalizeConfig(findEntry(raw) || {})
     if (JSON.stringify(config.groups) !== JSON.stringify(next.groups)) revealedGroupId = ""
     config = next
     revision++
   }
 
   function persist(next) {
+    var shell = effectiveShell
     if (suspended || !shell || typeof shell.mutateShellConfig !== "function") return false
     var normalized = Model.normalizeConfig(next)
     var payload = Model.serializeConfig(normalized)
@@ -114,7 +149,7 @@ Item {
   function moveWidget(groupId, widgetId, offset) { return persist(Model.moveWidget(config, groupId, widgetId, offset)) }
 
   function slots() {
-    var bar = shell ? shell.bar : null
+    var bar = effectiveBar || getHostBar()
     return bar && Array.isArray(bar.moduleSlots) ? bar.moduleSlots : []
   }
 
@@ -126,9 +161,10 @@ Item {
     suspended = true
     revealTimer.stop()
     var mutated = false
+    var shell = effectiveShell
     if (shell && typeof shell.mutateShellConfig === "function") {
       shell.mutateShellConfig(function(shellConfig) {
-        var layout = shellConfig && shellConfig.bar ? shellConfig.bar.layout : null
+        var layout = shellConfig && shellConfig.bar ? shellConfig.bar.layout : (shellConfig ? shellConfig.layout : null)
         Model.removeGeneratedEntries(layout, root.groupPrefix)
         mutated = true
       })
@@ -197,6 +233,7 @@ Item {
   function registerPanelHost(host) {
     if (host && panelHosts.indexOf(host) === -1) {
       var next = panelHosts.slice(); next.push(host); panelHosts = next
+      if (host.hostBar) registerHostBar(host.hostBar)
     }
   }
   function unregisterPanelHost(host) { panelHosts = panelHosts.filter(function(item) { return item !== host }) }
@@ -224,7 +261,7 @@ Item {
   }
 
   function revealedMemberOwnsPopout() {
-    var bar = shell ? shell.bar : null
+    var bar = effectiveBar || getHostBar()
     var owner = bar ? bar.activePopout : null
     var group = Model.groupById(config, revealedGroupId)
     if (!owner || !group) return false
@@ -270,15 +307,27 @@ Item {
   Component.onCompleted: { loadConfig(); Qt.callLater(ensureGroupEntries); Qt.callLater(reconcileSlots) }
   Component.onDestruction: restoreAll()
   onShellChanged: { loadConfig(); Qt.callLater(ensureGroupEntries); Qt.callLater(reconcileSlots) }
+  onHostBarChanged: { loadConfig(); Qt.callLater(ensureGroupEntries); Qt.callLater(reconcileSlots) }
   Connections {
     target: root.shell
     ignoreUnknownSignals: true
     function onShellConfigChanged() { root.loadConfig(); Qt.callLater(root.ensureGroupEntries); Qt.callLater(root.reconcileSlots) }
+    function onBarConfigChanged() { root.loadConfig(); Qt.callLater(root.ensureGroupEntries); Qt.callLater(root.reconcileSlots) }
     function onBarChanged() { Qt.callLater(root.reconcileSlots) }
   }
   Connections {
     target: root.shell ? root.shell.bar : null
     ignoreUnknownSignals: true
     function onModuleSlotsChanged() { Qt.callLater(root.reconcileSlots) }
+  }
+  Connections {
+    target: root.hostBar
+    ignoreUnknownSignals: true
+    function onModuleSlotsChanged() { Qt.callLater(root.reconcileSlots) }
+  }
+  Connections {
+    target: root.hostBar && root.hostBar.shell ? root.hostBar.shell : null
+    ignoreUnknownSignals: true
+    function onShellConfigChanged() { root.loadConfig(); Qt.callLater(root.ensureGroupEntries); Qt.callLater(root.reconcileSlots) }
   }
 }
