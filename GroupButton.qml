@@ -7,8 +7,48 @@ BarWidget {
 
   property var settings: ({})
   readonly property string groupId: String(settings.shelfishGroupId || "")
-  readonly property var service: bar && bar.shell && typeof bar.shell.serviceFor === "function"
-    ? bar.shell.serviceFor("io.github.patrickfanella.shelfish") : null
+  function getSlots() {
+    var top = root
+    while (top && top.parent) top = top.parent
+    var found = []
+    if (!top) return found
+    var queue = [top]
+    while (queue.length > 0) {
+      var cur = queue.shift()
+      if (!cur) continue
+      if (cur.moduleName !== undefined && "activeItem" in cur) {
+        found.push(cur)
+      }
+      var ch = cur.children
+      if (ch && ch.length) {
+        for (var i = 0; i < ch.length; i++) queue.push(ch[i])
+      }
+    }
+    return found
+  }
+
+  function findService() {
+    if (bar && bar.shell && typeof bar.shell.serviceFor === "function") {
+      var s = bar.shell.serviceFor("io.github.patrickfanella.shelfish")
+      if (s) return s
+    }
+    var top = root
+    while (top && top.parent) top = top.parent
+    if (top) {
+      var queue = [top]
+      while (queue.length > 0) {
+        var cur = queue.shift()
+        if (!cur) continue
+        if (cur.registeredService) return cur.registeredService
+        var ch = cur.children
+        if (ch && ch.length) {
+          for (var i = 0; i < ch.length; i++) queue.push(ch[i])
+        }
+      }
+    }
+    return null
+  }
+  readonly property var service: findService()
   readonly property var group: {
     if (!service) return null
     for (var i = 0; i < service.config.groups.length; i++)
@@ -18,6 +58,16 @@ BarWidget {
   readonly property bool opened: service && service.revealedGroupId === groupId
 
   function tr(key) { return service && typeof service.tr === "function" ? service.tr(key) : I18n.translate(Qt.locale().name, key) }
+
+  function syncHost() {
+    if (service && typeof service.registerPanelHost === "function") {
+      service.registerPanelHost(root)
+    }
+  }
+
+  onParentChanged: syncHost()
+  Component.onCompleted: syncHost()
+  onServiceChanged: syncHost()
 
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
