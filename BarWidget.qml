@@ -9,16 +9,46 @@ BarWidget {
   property bool managerOpen: false
   property var registeredService: null
   readonly property bool opened: managerOpen
-  readonly property var service: bar && bar.shell && typeof bar.shell.serviceFor === "function"
-    ? bar.shell.serviceFor(moduleName) : null
+  function getSlots() {
+    var top = root
+    while (top && top.parent) top = top.parent
+    var found = []
+    if (!top) return found
+    var queue = [top]
+    while (queue.length > 0) {
+      var cur = queue.shift()
+      if (!cur) continue
+      if (cur.moduleName !== undefined && "activeItem" in cur) {
+        found.push(cur)
+      }
+      var ch = cur.children
+      if (ch && ch.length) {
+        for (var i = 0; i < ch.length; i++) queue.push(ch[i])
+      }
+    }
+    return found
+  }
+
+  readonly property var service: {
+    if (bar && bar.shell && typeof bar.shell.serviceFor === "function") {
+      return bar.shell.serviceFor(moduleName)
+    }
+    return null
+  }
 
   function tr(key) { return service && typeof service.tr === "function" ? service.tr(key) : I18n.translate(Qt.locale().name, key) }
 
   function syncRegistration() {
-    if (registeredService === service) return
+    if (registeredService === service) {
+      if (service && typeof service.reconcileSlots === "function") service.reconcileSlots()
+      return
+    }
     if (registeredService) registeredService.unregisterPanelHost(root)
     registeredService = service
-    if (registeredService) registeredService.registerPanelHost(root)
+    if (registeredService) {
+      registeredService.registerPanelHost(root)
+      if (typeof registeredService.reconcileSlots === "function") registeredService.reconcileSlots()
+    }
   }
   function openManager() {
     if (service) {
@@ -40,6 +70,7 @@ BarWidget {
   implicitWidth: managerButton.implicitWidth
   implicitHeight: managerButton.implicitHeight
 
+  onParentChanged: syncRegistration()
   Component.onCompleted: syncRegistration()
   Component.onDestruction: if (registeredService) registeredService.unregisterPanelHost(root)
   onServiceChanged: syncRegistration()

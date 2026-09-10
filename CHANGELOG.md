@@ -2,7 +2,7 @@
 
 ## Unreleased compatibility fixes
 
-- Detect hosts without the grouping API, preserve visible widgets, and explain why group editing is unavailable instead of silently failing.
+- Preserve Omarchy 4.0.3 host slot discovery and collapsing; show a compatibility fallback only when usable slots are unavailable.
 
 ## 1.1.1 - 2026-08-28
 

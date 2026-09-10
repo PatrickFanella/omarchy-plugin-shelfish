@@ -85,9 +85,8 @@ The test script runs model, localization, and release metadata tests, then runs 
 
 ## Shell API compatibility
 
-Grouping requires a host API that exposes live bar slots and layout mutation.
-On shells that supply a scalar-only bar facade, Shelfish keeps existing widgets
-visible, reads its saved groups, and displays an explicit compatibility message.
-Group editing and automatic layout writes are disabled in that mode. It does not
-traverse the host object tree or restore private registry access. Installing this
-release alone does not enable grouping on such hosts.
+Shelfish uses the host and window slot discovery provided by the Omarchy 4.0.3
+compatibility implementation. When no usable slots or configuration are available,
+it keeps widgets visible, reads its saved groups, and displays an explicit
+compatibility message. Group editing and automatic layout writes are disabled
+only in that fallback state. Grouping resumes when host slot discovery succeeds.
