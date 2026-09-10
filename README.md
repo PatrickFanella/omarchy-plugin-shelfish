@@ -82,3 +82,12 @@ The test script runs model, localization, and release metadata tests, then runs 
 - It groups only installed bar plugins with live module slots.
 - It cannot restore pre-group layout positions.
 - Status discovery is polling-based with a 500 ms interval.
+
+## Shell API compatibility
+
+Grouping requires a host API that exposes live bar slots and layout mutation.
+On shells that supply a scalar-only bar facade, Shelfish keeps existing widgets
+visible, reads its saved groups, and displays an explicit compatibility message.
+Group editing and automatic layout writes are disabled in that mode. It does not
+traverse the host object tree or restore private registry access. Installing this
+release alone does not enable grouping on such hosts.

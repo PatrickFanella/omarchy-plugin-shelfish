@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased compatibility fixes
+
+- Detect hosts without the grouping API, preserve visible widgets, and explain why group editing is unavailable instead of silently failing.
+
 ## 1.1.1 - 2026-08-28
 
 - Mentioned ten-language localization in the README and marketplace description.

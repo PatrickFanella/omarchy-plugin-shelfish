@@ -3,6 +3,7 @@ set -euo pipefail
 
 plugin_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 node "$plugin_dir/tests/model.test.js"
+node --test "$plugin_dir/tests/scoped-shell.test.js"
 node "$plugin_dir/tests/i18n.test.js"
 node "$plugin_dir/tests/release.test.js"
 

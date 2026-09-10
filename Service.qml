@@ -45,10 +45,19 @@ Item {
   }
 
   function sourceDir() {
-    var stamped = manifest && manifest.__sourceDir ? manifest : null
-    if (!stamped && shell && shell.pluginRegistry && shell.pluginRegistry.installedPlugins)
-      stamped = shell.pluginRegistry.installedPlugins[moduleName]
-    return stamped && stamped.__sourceDir ? String(stamped.__sourceDir).replace(/\/$/, "") : ""
+    return decodeURIComponent(Qt.resolvedUrl(".").toString().replace(/^file:\/\//, "")).replace(/\/$/, "")
+  }
+
+  // Grouping needs explicit access to bar slots and layout mutation. A scoped
+  // shell deliberately does not expose these; never traverse its object tree.
+  readonly property bool groupingAvailable: !!shell && !!shell.bar
+    && Array.isArray(shell.bar.moduleSlots) && !!shell.shellConfig
+  readonly property string compatibilityMessage: groupingAvailable ? ""
+    : "This Omarchy shell does not expose the bar grouping API. Widgets remain visible; group editing is unavailable."
+
+  function currentConfig() {
+    return shell && shell.barConfig ? { bar: shell.barConfig }
+      : (shell && shell.shellConfig ? shell.shellConfig : null)
   }
 
   function syncGroupEntries(shellConfig, nextConfig) {
@@ -59,7 +68,7 @@ Item {
   }
 
   function ensureGroupEntries() {
-    if (suspended || !shell || !shell.shellConfig || typeof shell.mutateShellConfig !== "function" || !sourceDir()) return
+    if (suspended || !groupingAvailable || !shell || !shell.shellConfig || typeof shell.mutateShellConfig !== "function" || !sourceDir()) return
     var copy
     try { copy = JSON.parse(JSON.stringify(shell.shellConfig)) } catch (error) { return }
     var before = JSON.stringify(copy.bar && copy.bar.layout)
@@ -69,14 +78,14 @@ Item {
   }
 
   function loadConfig() {
-    var next = Model.normalizeConfig(findEntry(shell ? shell.shellConfig : null) || {})
+    var next = Model.normalizeConfig(findEntry(currentConfig()) || {})
     if (JSON.stringify(config.groups) !== JSON.stringify(next.groups)) revealedGroupId = ""
     config = next
     revision++
   }
 
   function persist(next) {
-    if (suspended || !shell || typeof shell.mutateShellConfig !== "function") return false
+    if (suspended || !groupingAvailable || !shell || typeof shell.mutateShellConfig !== "function") return false
     var normalized = Model.normalizeConfig(next)
     var payload = Model.serializeConfig(normalized)
     var wrote = false
@@ -126,7 +135,7 @@ Item {
     suspended = true
     revealTimer.stop()
     var mutated = false
-    if (shell && typeof shell.mutateShellConfig === "function") {
+    if (groupingAvailable && shell && typeof shell.mutateShellConfig === "function") {
       shell.mutateShellConfig(function(shellConfig) {
         var layout = shellConfig && shellConfig.bar ? shellConfig.bar.layout : null
         Model.removeGeneratedEntries(layout, root.groupPrefix)
@@ -142,11 +151,11 @@ Item {
     managedIds = []
     revealedGroupId = ""
     revision++
-    return mutated
+    return mutated || !groupingAvailable
   }
 
   function reconcileSlots() {
-    if (suspended) return
+    if (suspended || !groupingAvailable) return
     var nextManaged = Model.allWidgetIds(config).filter(function(id) {
       return id !== root.moduleName && id !== "omarchy.tray" && id.indexOf(root.groupPrefix) !== 0
     })
@@ -204,7 +213,7 @@ Item {
 
   function policy(id) { return config.policies[id] || { autoReveal: true, revealSeconds: 0 } }
   function pollStatus() {
-    if (suspended) return
+    if (suspended || !groupingAvailable) return
     var next = {}; var changed = false; var all = slots()
     var suppressed = Date.now() < suppressStatusUntil
     for (var i = 0; i < all.length; i++) {
@@ -243,7 +252,7 @@ Item {
   }
 
   function statusObject() {
-    return { activeGroupId: config.activeGroupId, revealedGroupId: revealedGroupId, managedWidgets: managedCount }
+    return { groupingAvailable: groupingAvailable, compatibilityMessage: compatibilityMessage, activeGroupId: config.activeGroupId, revealedGroupId: revealedGroupId, managedWidgets: managedCount }
   }
 
   IpcHandler {
@@ -273,6 +282,7 @@ Item {
   Connections {
     target: root.shell
     ignoreUnknownSignals: true
+    function onBarConfigChanged() { root.loadConfig(); Qt.callLater(root.reconcileSlots) }
     function onShellConfigChanged() { root.loadConfig(); Qt.callLater(root.ensureGroupEntries); Qt.callLater(root.reconcileSlots) }
     function onBarChanged() { Qt.callLater(root.reconcileSlots) }
   }
