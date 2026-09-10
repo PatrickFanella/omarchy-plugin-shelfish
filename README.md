@@ -82,3 +82,11 @@ The test script runs model, localization, and release metadata tests, then runs 
 - It groups only installed bar plugins with live module slots.
 - It cannot restore pre-group layout positions.
 - Status discovery is polling-based with a 500 ms interval.
+
+## Shell API compatibility
+
+Shelfish uses the host and window slot discovery provided by the Omarchy 4.0.3
+compatibility implementation. When no usable slots or configuration are available,
+it keeps widgets visible, reads its saved groups, and displays an explicit
+compatibility message. Group editing and automatic layout writes are disabled
+only in that fallback state. Grouping resumes when host slot discovery succeeds.

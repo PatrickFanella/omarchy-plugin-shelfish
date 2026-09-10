@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased compatibility fixes
+
+- Preserve Omarchy 4.0.3 host slot discovery and collapsing; show a compatibility fallback only when usable slots are unavailable.
+
 ## 1.1.1 - 2026-08-28
 
 - Mentioned ten-language localization in the README and marketplace description.

@@ -72,10 +72,21 @@ KeyboardPanel {
   contentHeight: fittedContentHeight(Style.space(600), Style.space(680))
 
   Column {
+    enabled: !!root.service && root.service.groupingAvailable
     anchors.fill: parent
     spacing: Style.space(8)
 
     Text { text: root.tr("settings.title"); color: root.foreground; font.family: Style.font.family; font.pixelSize: Style.font.subtitle; font.bold: true }
+
+    Text {
+      width: parent.width
+      visible: root.service && !root.service.groupingAvailable
+      text: visible ? root.service.compatibilityMessage : ""
+      wrapMode: Text.WordWrap
+      color: root.foreground
+      font.family: Style.font.family
+      font.pixelSize: Style.font.body
+    }
 
     Flickable {
       width: parent.width

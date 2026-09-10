@@ -73,13 +73,17 @@ Item {
   }
 
   function sourceDir() {
-    var stamped = manifest && manifest.__sourceDir ? manifest : null
-    if (!stamped && shell && shell.pluginRegistry && shell.pluginRegistry.installedPlugins)
-      stamped = shell.pluginRegistry.installedPlugins[moduleName]
-    var sh = effectiveShell
-    if (!stamped && sh && sh.pluginRegistry && sh.pluginRegistry.installedPlugins)
-      stamped = sh.pluginRegistry.installedPlugins[moduleName]
-    return stamped && stamped.__sourceDir ? String(stamped.__sourceDir).replace(/\/$/, "") : ""
+    return decodeURIComponent(Qt.resolvedUrl(".").toString().replace(/^file:\/\//, "")).replace(/\/$/, "")
+  }
+
+  // Preserve host slot discovery; show the fallback only when it finds no slots.
+  readonly property bool groupingAvailable: canGroup()
+  readonly property string compatibilityMessage: groupingAvailable ? ""
+    : "No usable bar slots are available. Widgets remain visible; group editing is unavailable."
+
+  function canGroup() {
+    return !!effectiveShell && typeof effectiveShell.mutateShellConfig === "function"
+      && !!getEffectiveConfig() && slots().length > 0
   }
 
   function syncGroupEntries(shellConfig, nextConfig) {
@@ -92,7 +96,7 @@ Item {
   function ensureGroupEntries() {
     var shell = effectiveShell
     var raw = getEffectiveConfig()
-    if (suspended || !shell || !raw || typeof shell.mutateShellConfig !== "function" || !sourceDir()) return
+    if (suspended || !groupingAvailable || !shell || !raw || typeof shell.mutateShellConfig !== "function" || !sourceDir()) return
     var copy
     try { copy = JSON.parse(JSON.stringify(raw)) } catch (error) { return }
     var before = JSON.stringify(copy.bar ? copy.bar.layout : copy.layout)
@@ -111,7 +115,7 @@ Item {
 
   function persist(next) {
     var shell = effectiveShell
-    if (suspended || !shell || typeof shell.mutateShellConfig !== "function") return false
+    if (suspended || !groupingAvailable || !shell || typeof shell.mutateShellConfig !== "function") return false
     var normalized = Model.normalizeConfig(next)
     var payload = Model.serializeConfig(normalized)
     var wrote = false
@@ -191,7 +195,7 @@ Item {
     revealTimer.stop()
     var mutated = false
     var shell = effectiveShell
-    if (shell && typeof shell.mutateShellConfig === "function") {
+    if (groupingAvailable && shell && typeof shell.mutateShellConfig === "function") {
       shell.mutateShellConfig(function(shellConfig) {
         var layout = shellConfig && shellConfig.bar ? shellConfig.bar.layout : (shellConfig ? shellConfig.layout : null)
         Model.removeGeneratedEntries(layout, root.groupPrefix)
@@ -210,11 +214,11 @@ Item {
     managedIds = []
     revealedGroupId = ""
     revision++
-    return mutated
+    return mutated || !groupingAvailable
   }
 
   function reconcileSlots() {
-    if (suspended) return
+    if (suspended || !groupingAvailable) return
     var nextManaged = Model.allWidgetIds(config).filter(function(id) {
       return id !== root.moduleName && id !== "omarchy.tray" && id.indexOf(root.groupPrefix) !== 0
     })
@@ -282,7 +286,7 @@ Item {
 
   function policy(id) { return config.policies[id] || { autoReveal: true, revealSeconds: 0 } }
   function pollStatus() {
-    if (suspended) return
+    if (suspended || !groupingAvailable) return
     var next = {}; var changed = false; var all = slots()
     var suppressed = Date.now() < suppressStatusUntil
     for (var i = 0; i < all.length; i++) {
@@ -322,6 +326,8 @@ Item {
 
   function statusObject() {
     return {
+      groupingAvailable: groupingAvailable,
+      compatibilityMessage: compatibilityMessage,
       activeGroupId: config.activeGroupId,
       revealedGroupId: revealedGroupId,
       managedWidgets: managedCount
