@@ -3,6 +3,7 @@ import QtQuick.Controls
 import qs.Commons
 import qs.Ui
 import "I18n.js" as I18n
+import "Model.js" as Model
 
 KeyboardPanel {
   id: root
@@ -34,6 +35,11 @@ KeyboardPanel {
     var live = {}
     var slots = service ? service.slots() : []
     for (var s = 0; s < slots.length; s++) if (slots[s]) live[String(slots[s].moduleName || "")] = true
+    var managed = service && service.config ? Model.allWidgetIds(service.config) : []
+    for (var m = 0; m < managed.length; m++) live[managed[m]] = true
+    if (service && service.config && service.config.widgetConfigs) {
+      for (var wk in service.config.widgetConfigs) live[wk] = true
+    }
     out.push({ id: "shelfish.settings", name: tr("settings.shortcut") })
     var installed = shell && shell.pluginRegistry ? shell.pluginRegistry.installedPlugins : null
     if (!installed) return out
