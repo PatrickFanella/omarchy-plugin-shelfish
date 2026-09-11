@@ -55,7 +55,7 @@ BarWidget {
       if (service.config.groups[i].id === groupId) return service.config.groups[i]
     return null
   }
-  readonly property bool opened: service && service.revealedGroupId === groupId
+  readonly property bool opened: service && (service.revealedGroupId ? service.revealedGroupId === groupId : service.config.activeGroupId === groupId)
 
   function tr(key) { return service && typeof service.tr === "function" ? service.tr(key) : I18n.translate(Qt.locale().name, key) }
 
@@ -67,6 +67,11 @@ BarWidget {
 
   onParentChanged: syncHost()
   Component.onCompleted: syncHost()
+  Component.onDestruction: {
+    if (service && typeof service.unregisterPanelHost === "function") {
+      service.unregisterPanelHost(root)
+    }
+  }
   onServiceChanged: syncHost()
 
   implicitWidth: button.implicitWidth

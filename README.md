@@ -62,7 +62,7 @@ omarchy plugin remove io.github.patrickfanella.shelfish
 
 ## Permissions and security
 
-Omarchy plugins run unsandboxed. Shelfish changes `~/.config/omarchy/shell.json` only through Omarchy's `mutateShellConfig` API. It does not use the network, request elevated privileges, or start external processes.
+Omarchy plugins run unsandboxed. Shelfish changes `~/.config/omarchy/shell.json` using Omarchy's `mutateShellConfig` API when available, and falls back to atomic direct file writes via `FileView` when running under Omarchy 4.0.3+ scoped facades. It does not use the network, request elevated privileges, or start external processes.
 
 ## Development and validation
 
@@ -74,19 +74,19 @@ omarchy plugin validate .
 qmllint BarWidget.qml GroupButton.qml ManagePanel.qml Service.qml
 ```
 
-The test script runs model, localization, and release metadata tests, then runs Omarchy validation when the CLI is installed. Standalone `qmllint` is not used because it cannot resolve all Quickshell runtime types; releases also receive a controlled live shell check.
+The test script runs model, localization, scoped shell compatibility, and release metadata tests, then runs Omarchy validation when the CLI is installed. Standalone `qmllint` is not used because it cannot resolve all Quickshell runtime types; releases also receive a controlled live shell check.
 
 ## Known limitations
 
-- Shelfish depends on Quattro's internal `moduleSlots` API.
-- It groups only installed bar plugins with live module slots.
+- Shelfish depends on Quickshell's Wayland window scene graph and `moduleSlots` architecture.
+- It groups installed bar plugins with live module slots and registered entries in `shell.json`.
 - It cannot restore pre-group layout positions.
-- Status discovery is polling-based with a 500 ms interval.
 
-## Shell API compatibility
+## Shell API compatibility and multi-monitor architecture
 
-Shelfish uses the host and window slot discovery provided by the Omarchy 4.0.3
-compatibility implementation. When no usable slots or configuration are available,
-it keeps widgets visible, reads its saved groups, and displays an explicit
-compatibility message. Group editing and automatic layout writes are disabled
-only in that fallback state. Grouping resumes when host slot discovery succeeds.
+In Omarchy 4.0.3+, third-party plugins are sandboxed behind capability-scoped facades (`PluginShellApi` and `PluginBarApi`). Shelfish supports this architecture seamlessly:
+
+- **Layout-Level Active Group Mounting:** Rather than mounting all configured widgets simultaneously and relying purely on visual hiding, Shelfish mounts only the currently active group in `bar.layout.center`. Inactive group widgets are omitted from the layout array, preventing Quickshell from instantiating redundant `ModuleSlot` and `registryLoader` instances across multi-monitor setups.
+- **Widget Option Preservation:** Custom widget configurations and options are preserved in `config.widgetConfigs` across group transitions so that user settings are retained when widgets are swapped.
+- **Window Deduplication and Lifecycle Management:** Slot discovery deduplicates traversals by Wayland window root, and group buttons cleanly unregister from the service upon destruction to prevent event loop leaks and invalid QML context evaluations.
+- **Fallback State:** When no usable slots or configuration are available, widgets remain visible, saved groups are retained, and an explicit compatibility message is displayed. Grouping resumes automatically when host slot discovery succeeds.

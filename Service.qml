@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import Quickshell.Io
 import "Model.js" as Model
 import "I18n.js" as I18n
@@ -90,7 +91,9 @@ Item {
     var layout = shellConfig && shellConfig.bar ? shellConfig.bar.layout : (shellConfig ? shellConfig.layout : null)
     var dir = sourceDir()
     if (!layout || !dir) return
-    Model.syncGroupEntries(layout, nextConfig.groups, moduleName, groupPrefix, dir)
+    var activeId = revealedGroupId || (nextConfig ? nextConfig.activeGroupId : "")
+    var wConfigs = nextConfig ? nextConfig.widgetConfigs : null
+    Model.syncGroupEntries(layout, nextConfig.groups, moduleName, groupPrefix, dir, activeId, wConfigs)
   }
 
   function ensureGroupEntries() {
@@ -113,32 +116,60 @@ Item {
     revision++
   }
 
+  FileView {
+    id: userConfigFile
+    path: Quickshell.env("HOME") + "/.config/omarchy/shell.json"
+    watchChanges: true
+    onFileChanged: reload()
+  }
+
   function persist(next) {
-    var shell = effectiveShell
-    if (suspended || !groupingAvailable || !shell || typeof shell.mutateShellConfig !== "function") return false
+    if (suspended || !groupingAvailable) return false
     var normalized = Model.normalizeConfig(next)
     var payload = Model.serializeConfig(normalized)
     var wrote = false
-    shell.mutateShellConfig(function(shellConfig) {
-      var entry = root.findEntry(shellConfig)
-      if (!entry) return
-      for (var key in payload) entry[key] = payload[key]
-      root.syncGroupEntries(shellConfig, normalized)
-      wrote = true
-    })
+    var shell = effectiveShell
+    if (shell && typeof shell.mutateShellConfig === "function") {
+      try {
+        wrote = shell.mutateShellConfig(function(shellConfig) {
+          var entry = root.findEntry(shellConfig)
+          if (!entry) return
+          for (var key in payload) entry[key] = payload[key]
+          root.syncGroupEntries(shellConfig, normalized)
+        }) === true
+      } catch (err) {
+        wrote = false
+      }
+    }
+    if (!wrote) {
+      var raw = null
+      try { raw = JSON.parse(userConfigFile.text()) } catch (e) { raw = getEffectiveConfig() }
+      if (raw) {
+        var copy = JSON.parse(JSON.stringify(raw))
+        var entry = root.findEntry(copy)
+        if (entry) {
+          for (var key in payload) entry[key] = payload[key]
+          root.syncGroupEntries(copy, normalized)
+          var text = JSON.stringify(copy, null, 2) + "\n"
+          while (text.indexOf("}}") !== -1) text = text.replace(/\}\}/g, "} }")
+          while (text.indexOf("{{") !== -1) text = text.replace(/\{\{/g, "{ {")
+          userConfigFile.setText(text)
+          wrote = true
+        }
+      }
+    }
     if (wrote) {
       suppressStatusReveal()
       revealTimer.stop()
       revealedGroupId = ""
       config = normalized
-      Qt.callLater(reconcileSlots)
       revision++
     }
     return wrote
   }
 
   function setActiveGroup(groupId) {
-    if (!Model.groupById(config, groupId)) return false
+    if (groupId && !Model.groupById(config, groupId)) return false
     var next = Model.normalizeConfig(config); next.activeGroupId = groupId
     return persist(next)
   }
@@ -162,17 +193,29 @@ Item {
 
   function slots() {
     var all = []
+    var liveHosts = []
+    var seenWindows = []
     for (var i = 0; i < panelHosts.length; i++) {
       var host = panelHosts[i]
-      if (host && typeof host.getSlots === "function") {
-        var s = host.getSlots()
-        if (s && s.length) {
-          for (var j = 0; j < s.length; j++) {
-            if (all.indexOf(s[j]) === -1) all.push(s[j])
+      if (!host) continue
+      try {
+        if (typeof host.getSlots === "function" && host.parent !== undefined) {
+          liveHosts.push(host)
+          var top = host
+          while (top && top.parent) top = top.parent
+          if (top && seenWindows.indexOf(top) !== -1) continue
+          if (top) seenWindows.push(top)
+
+          var s = host.getSlots()
+          if (s && s.length) {
+            for (var j = 0; j < s.length; j++) {
+              if (all.indexOf(s[j]) === -1) all.push(s[j])
+            }
           }
         }
-      }
+      } catch (e) {}
     }
+    if (liveHosts.length !== panelHosts.length) panelHosts = liveHosts
     if (all.length > 0) return all
 
     var bar = getEffectiveBar()
@@ -226,7 +269,8 @@ Item {
     var previous = {}
     for (var i = 0; i < nextManaged.length; i++) managed[nextManaged[i]] = true
     for (var p = 0; p < managedIds.length; p++) previous[managedIds[p]] = true
-    var group = Model.groupById(config, revealedGroupId)
+    var effectiveGroupId = revealedGroupId || config.activeGroupId || ""
+    var group = Model.groupById(config, effectiveGroupId)
     var active = group ? group.widgets : []
     var all = slots()
     for (var s = 0; s < all.length; s++) {
@@ -259,16 +303,24 @@ Item {
   function showGroup(id) {
     revealTimer.stop()
     if (!Model.groupById(config, id)) return
-    revealedGroupId = id
-    reconcileSlots()
+    setActiveGroup(id)
   }
-  function hide() { revealedGroupId = ""; revealTimer.stop(); reconcileSlots() }
+  function hide() {
+    revealedGroupId = ""
+    revealTimer.stop()
+    setActiveGroup("")
+  }
   function toggleGroup(id) {
     revealTimer.stop()
-    revealedGroupId === id ? hide() : showGroup(id)
+    revealedGroupId = ""
+    if (config.activeGroupId === id) {
+      setActiveGroup("")
+    } else {
+      setActiveGroup(id)
+    }
   }
-  function show() { showGroup(config.activeGroupId) }
-  function toggle() { revealed ? hide() : show() }
+  function show() { showGroup(config.activeGroupId || (config.groups[0] ? config.groups[0].id : "")) }
+  function toggle() { config.activeGroupId ? hide() : show() }
 
   function suppressStatusReveal() { suppressStatusUntil = Date.now() + 1000 }
   function suppressGroupToggles() { suppressGroupToggleUntil = Date.now() + 350 }
@@ -340,12 +392,14 @@ Item {
     function show(): void { root.show() }
     function hide(): void { root.hide() }
     function toggle(): void { root.toggle() }
+    function toggleGroup(id: string): void { root.toggleGroup(id) }
+    function showGroup(id: string): void { root.showGroup(id) }
     function status(): string { return JSON.stringify(root.statusObject()) }
     function restore(): string { return root.restoreAll() ? "ok" : "failed" }
     function restoreAll(): string { return root.restoreAll() ? "ok" : "failed" }
   }
 
-  Timer { id: pollTimer; interval: 500; repeat: true; running: true; onTriggered: root.pollStatus() }
+  Timer { id: pollTimer; interval: 500; repeat: true; running: false; onTriggered: root.pollStatus() }
   Timer {
     id: revealTimer
     interval: root.config.revealSeconds * 1000
@@ -356,7 +410,6 @@ Item {
   }
 
   Component.onCompleted: { loadConfig(); Qt.callLater(ensureGroupEntries); Qt.callLater(reconcileSlots) }
-  Component.onDestruction: restoreAll()
   onShellChanged: { loadConfig(); Qt.callLater(ensureGroupEntries); Qt.callLater(reconcileSlots) }
   onHostBarChanged: { loadConfig(); Qt.callLater(ensureGroupEntries); Qt.callLater(reconcileSlots) }
   Connections {

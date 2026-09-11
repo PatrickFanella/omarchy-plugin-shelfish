@@ -109,10 +109,11 @@ function normalizeConfig(source) {
   var seconds = Math.floor(Number(source.revealSeconds || 8))
   return {
     groups: groups,
-    activeGroupId: exists ? active : groups[0].id,
+    activeGroupId: exists ? active : (source.activeGroupId === "" ? "" : groups[0].id),
     watchedPaths: parseWatchedPaths(source.watchedPaths),
     policies: parsePolicies(source.policies),
-    revealSeconds: Math.max(1, Math.min(300, seconds || 8))
+    revealSeconds: Math.max(1, Math.min(300, seconds || 8)),
+    widgetConfigs: parseJson(source.widgetConfigs, {}) || {}
   }
 }
 
@@ -244,7 +245,7 @@ function removeGeneratedEntries(layout, groupPrefix) {
   return changed
 }
 
-function syncGroupEntries(layout, groups, moduleName, groupPrefix, sourceDir) {
+function syncGroupEntries(layout, groups, moduleName, groupPrefix, sourceDir, activeGroupId, widgetConfigs) {
   if (!layout || !sourceDir) return false
   var sections = ["left", "center", "right"]
   var hasManager = false
@@ -276,6 +277,9 @@ function syncGroupEntries(layout, groups, moduleName, groupPrefix, sourceDir) {
       if (wanted[id]) {
         if (!memberEntries[id]) memberEntries[id] = []
         memberEntries[id].push(source[i])
+        if (widgetConfigs && typeof widgetConfigs === "object") {
+          widgetConfigs[id] = source[i]
+        }
         continue
       }
       if (id === moduleName) {
@@ -288,18 +292,30 @@ function syncGroupEntries(layout, groups, moduleName, groupPrefix, sourceDir) {
   }
   if (!managerSection || managerIndex < 0) return false
 
+  var effectiveActiveId = activeGroupId !== undefined ? activeGroupId : (groups[0] ? groups[0].id : "")
+
   var additions = []
   for (var groupIndex = 0; groupIndex < groups.length; groupIndex++) {
     var group = groups[groupIndex]
     var members = []
-    for (var memberIndex = 0; memberIndex < group.widgets.length; memberIndex++) {
-      var entries = memberEntries[group.widgets[memberIndex]]
-      if (entries) members = members.concat(entries)
-      else if (isSettingsShortcut(group.widgets[memberIndex])) members.push({
-        id: groupPrefix + group.id + ".settings",
-        source: sourceDir + "/SettingsButton.qml",
-        shelfishGroupId: group.id
-      })
+    if (group.id === effectiveActiveId) {
+      for (var memberIndex = 0; memberIndex < group.widgets.length; memberIndex++) {
+        var widgetId = group.widgets[memberIndex]
+        var entries = memberEntries[widgetId]
+        if (entries && entries.length) {
+          members = members.concat(entries)
+        } else if (widgetConfigs && widgetConfigs[widgetId]) {
+          members.push(widgetConfigs[widgetId])
+        } else if (isSettingsShortcut(widgetId)) {
+          members.push({
+            id: groupPrefix + group.id + ".settings",
+            source: sourceDir + "/SettingsButton.qml",
+            shelfishGroupId: group.id
+          })
+        } else {
+          members.push({ id: widgetId })
+        }
+      }
     }
     var groupEntry = {
       id: groupPrefix + group.id,
@@ -359,12 +375,19 @@ function statusSnapshot(item, widgetId, watchedPaths) {
 
 function serializeConfig(config) {
   var normalized = normalizeConfig(config)
+  function safeJson(val) {
+    var s = JSON.stringify(val)
+    while (s.indexOf("}}") !== -1) s = s.replace(/\}\}/g, "} }")
+    while (s.indexOf("{{") !== -1) s = s.replace(/\{\{/g, "{ {")
+    return s
+  }
   return {
-    groups: JSON.stringify(normalized.groups),
+    groups: safeJson(normalized.groups),
     activeGroupId: normalized.activeGroupId,
-    watchedPaths: JSON.stringify(normalized.watchedPaths),
-    policies: JSON.stringify(normalized.policies),
-    revealSeconds: normalized.revealSeconds
+    watchedPaths: safeJson(normalized.watchedPaths),
+    policies: safeJson(normalized.policies),
+    revealSeconds: normalized.revealSeconds,
+    widgetConfigs: safeJson(normalized.widgetConfigs || {})
   }
 }
 
