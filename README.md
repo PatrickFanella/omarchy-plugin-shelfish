@@ -40,9 +40,9 @@ Status snapshots accept only `null`, booleans, finite numbers, and strings. Shel
 
 ## Layout changes
 
-Shelfish stores its settings on its own bar layout entry. Omarchy Quattro only lets `bar`-kind plugins call `mutateShellConfig`, so Shelfish saves through `apply-layout.py`. The helper writes the settings to that entry and places every configured member beside its group button. It replaces `shell.json` atomically. Groups follow manager order. Members follow their order inside each group. A right-facing group uses `group icon, members`; a left-facing group uses `members, group icon`.
+Shelfish stores its settings on its own bar layout entry. Omarchy Quattro only lets `bar`-kind plugins call `mutateShellConfig`, so Shelfish saves through `apply-layout.py`. The helper writes the settings to that entry and places the open group's members beside its group button. It replaces `shell.json` atomically. Groups follow manager order. Members follow their order inside each group. A right-facing group uses `group icon, members`; a left-facing group uses `members, group icon`.
 
-All members stay in the layout. Opening or closing a group only changes the visibility of bar slots at runtime and does not write `shell.json`. After each save, Shelfish applies visibility again while the bar rebuilds its slots.
+Only the open group's members are in the layout. Closed groups keep their members' settings in `widgetConfigs`, so hidden widgets are not loaded on every bar. Opening or closing a group saves the layout, and the bar rebuilds.
 
 Member entries, including duplicate instances, keep their complete configuration. Missing entries are skipped. A widget can belong to only one Shelfish group. The native `omarchy.tray` entry cannot be grouped.
 

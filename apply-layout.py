@@ -3,7 +3,8 @@
 
 Quattro only lets `bar`-kind plugins mutate the bar layout, so Shelfish hands its
 serialized settings to this helper. It stores them on the Shelfish entry and
-places every group member beside its group button; visibility is runtime state.
+places only the open group's members beside its button. Closed groups keep their
+members' entries in widgetConfigs so hidden widgets are not loaded on every bar.
 
 Usage: apply-layout.py <module-name> <group-prefix> <source-dir> <payload-json>
        apply-layout.py <module-name> <group-prefix> <source-dir> --restore
@@ -61,6 +62,7 @@ if restore:
 
 host.update(payload)
 groups = parse(host.get("groups"), [])
+active = host.get("activeGroupId") or ""
 widget_configs = parse(host.get("widgetConfigs"), {})
 members = {w for g in groups for w in g.get("widgets", []) if w not in (module, "omarchy.tray", SETTINGS)}
 
@@ -81,7 +83,7 @@ additions = []
 for g in groups:
     button = {"id": f"{prefix}{g['id']}", "source": f"{source_dir}/GroupButton.qml", "shelfishGroupId": g["id"]}
     group_members = []
-    for w in g.get("widgets", []):
+    for w in (g.get("widgets", []) if g["id"] == active else []):
         if w == SETTINGS:
             group_members.append({"id": f"{prefix}{g['id']}.settings", "source": f"{source_dir}/SettingsButton.qml", "shelfishGroupId": g["id"]})
         elif w in members:

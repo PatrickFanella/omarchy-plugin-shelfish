@@ -134,8 +134,6 @@ Item {
     var raw = getEffectiveConfig()
     var next = Model.normalizeConfig(findEntry(raw) || {})
     if (JSON.stringify(config.groups) !== JSON.stringify(next.groups)) revealedGroupId = ""
-    // Keep the runtime open group across unrelated config reloads.
-    if (activeGroupId && Model.groupById(next, activeGroupId)) next.activeGroupId = activeGroupId
     config = next
     activeGroupId = next.activeGroupId || ""
     revision++
@@ -192,14 +190,10 @@ Item {
 
   function setActiveGroup(groupId) {
     if (groupId && !Model.groupById(config, groupId)) return false
-    // Quattro only lets `bar`-kind plugins mutate the layout, so members stay in
-    // the layout and opening a group is runtime slot visibility.
+    // Only the open group's members are loaded; switching groups rewrites the layout.
     var next = Model.normalizeConfig(config)
     next.activeGroupId = groupId
-    config = next
-    activeGroupId = groupId
-    reconcileSlots()
-    return true
+    return persist(next)
   }
   function createGroup(name) { return persist(Model.addGroup(config, name)) }
   function deleteGroup(id) { return persist(Model.deleteGroup(config, id)) }
