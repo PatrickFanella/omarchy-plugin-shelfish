@@ -40,7 +40,9 @@ Status snapshots accept only `null`, booleans, finite numbers, and strings. Shel
 
 ## Layout changes
 
-Shelfish stores its settings on its own bar layout entry. When configuration changes, it uses Omarchy's `mutateShellConfig` API to move each configured member beside the Shelfish entry. Groups follow manager order. Members follow their order inside each group. A right-facing group uses `group icon, members`; a left-facing group uses `members, group icon`.
+Shelfish stores its settings on its own bar layout entry. Omarchy Quattro only lets `bar`-kind plugins call `mutateShellConfig`, so Shelfish saves through `apply-layout.py`. The helper writes the settings to that entry and places every configured member beside its group button. It replaces `shell.json` atomically. Groups follow manager order. Members follow their order inside each group. A right-facing group uses `group icon, members`; a left-facing group uses `members, group icon`.
+
+All members stay in the layout. Opening or closing a group only changes the visibility of bar slots at runtime and does not write `shell.json`. After each save, Shelfish applies visibility again while the bar rebuilds its slots.
 
 Member entries, including duplicate instances, keep their complete configuration. Missing entries are skipped. A widget can belong to only one Shelfish group. The native `omarchy.tray` entry cannot be grouped.
 
@@ -62,7 +64,7 @@ omarchy plugin remove io.github.patrickfanella.shelfish
 
 ## Permissions and security
 
-Omarchy plugins run unsandboxed. Shelfish changes `~/.config/omarchy/shell.json` using Omarchy's `mutateShellConfig` API when available, and falls back to atomic direct file writes via `FileView` when running under Omarchy 4.0.3+ scoped facades. It does not use the network, request elevated privileges, or start external processes.
+Omarchy plugins run unsandboxed. Shelfish changes `~/.config/omarchy/shell.json` by running its bundled `apply-layout.py` helper with `python3`. It does not use the network or request elevated privileges.
 
 ## Development and validation
 

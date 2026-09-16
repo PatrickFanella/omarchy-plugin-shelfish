@@ -1,72 +1,84 @@
 import QtQuick
 import qs.Ui
 import "I18n.js" as I18n
+import "SharedService.js" as SharedService
 
 BarWidget {
   id: root
 
   property var settings: ({})
-  readonly property string groupId: String(settings.shelfishGroupId || "")
-  function getSlots() {
-    var top = root
-    while (top && top.parent) top = top.parent
-    var found = []
-    if (!top) return found
-    var queue = [top]
-    while (queue.length > 0) {
-      var cur = queue.shift()
-      if (!cur) continue
-      if (cur.moduleName !== undefined && "activeItem" in cur) {
-        found.push(cur)
-      }
-      var ch = cur.children
-      if (ch && ch.length) {
-        for (var i = 0; i < ch.length; i++) queue.push(ch[i])
-      }
+  readonly property var hostBar: root.bar
+  readonly property string groupId: {
+    if (settings && settings.shelfishGroupId) return String(settings.shelfishGroupId)
+    if (root.moduleName && root.moduleName.indexOf("io.github.patrickfanella.shelfish.group.") === 0) {
+      return root.moduleName.slice("io.github.patrickfanella.shelfish.group.".length)
     }
-    return found
+    return ""
+  }
+  function getSlots() {
+    if (root.bar && root.bar.moduleSlots && root.bar.moduleSlots.length > 0) {
+      return root.bar.moduleSlots
+    }
+    var p = root.parent
+    while (p) {
+      if (p.moduleSlots && p.moduleSlots.length > 0) return p.moduleSlots
+      if (p.children && p.children.length > 0) {
+        var slots = []
+        for (var i = 0; i < p.children.length; i++) {
+          var c = p.children[i]
+          if (c && c.moduleName !== undefined && "activeItem" in c) slots.push(c)
+        }
+        if (slots.length > 0) return slots
+      }
+      p = p.parent
+    }
+    return []
   }
 
   function findService() {
+    var s = SharedService.getService()
+    if (s) return s
     if (bar && bar.shell && typeof bar.shell.serviceFor === "function") {
-      var s = bar.shell.serviceFor("io.github.patrickfanella.shelfish")
+      s = bar.shell.serviceFor("io.github.patrickfanella.shelfish")
       if (s) return s
-    }
-    var top = root
-    while (top && top.parent) top = top.parent
-    if (top) {
-      var queue = [top]
-      while (queue.length > 0) {
-        var cur = queue.shift()
-        if (!cur) continue
-        if (cur.registeredService) return cur.registeredService
-        var ch = cur.children
-        if (ch && ch.length) {
-          for (var i = 0; i < ch.length; i++) queue.push(ch[i])
-        }
-      }
     }
     return null
   }
-  readonly property var service: findService()
+  property var service: findService()
   readonly property var group: {
-    if (!service) return null
+    if (!service || !service.config || !service.config.groups) return null
     for (var i = 0; i < service.config.groups.length; i++)
       if (service.config.groups[i].id === groupId) return service.config.groups[i]
     return null
   }
-  readonly property bool opened: service && (service.revealedGroupId ? service.revealedGroupId === groupId : service.config.activeGroupId === groupId)
+  readonly property bool opened: {
+    if (!service || !groupId) return false
+    var active = service.revealedGroupId || service.activeGroupId || (service.config ? service.config.activeGroupId : "") || ""
+    return active === groupId
+  }
 
   function tr(key) { return service && typeof service.tr === "function" ? service.tr(key) : I18n.translate(Qt.locale().name, key) }
 
   function syncHost() {
+    if (!service) {
+      var s = findService()
+      if (s) service = s
+    }
     if (service && typeof service.registerPanelHost === "function") {
       service.registerPanelHost(root)
     }
   }
 
   onParentChanged: syncHost()
-  Component.onCompleted: syncHost()
+  Component.onCompleted: {
+    if (!service) {
+      SharedService.onServiceAvailable(function(s) {
+        root.service = s
+        root.syncHost()
+      })
+    }
+    syncHost()
+  }
   Component.onDestruction: {
     if (service && typeof service.unregisterPanelHost === "function") {
       service.unregisterPanelHost(root)
@@ -85,6 +97,7 @@ BarWidget {
     active: root.opened
     tooltipText: root.group ? root.group.name : root.tr("group.fallback")
     onPressed: function(mouseButton) {
+      if (!root.service) root.service = root.findService()
       if (mouseButton === Qt.RightButton && root.service) root.service.manage()
       else if (mouseButton === Qt.MiddleButton && root.service) root.service.hide()
       else if (root.service && root.service.canToggleGroups()) root.service.toggleGroup(root.groupId)

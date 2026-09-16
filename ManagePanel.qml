@@ -16,7 +16,7 @@ KeyboardPanel {
     return null
   }
   readonly property color foreground: bar ? bar.foreground : Color.foreground
-  readonly property var selectedGroup: service ? service.activeGroup : null
+  readonly property var selectedGroup: service ? service.editGroup : null
   readonly property string localeName: service && service.localeName ? service.localeName : Qt.locale().name
   focusTarget: newGroupName
   property string chosenIcon: "\uf07b"
@@ -41,6 +41,18 @@ KeyboardPanel {
       for (var wk in service.config.widgetConfigs) live[wk] = true
     }
     out.push({ id: "shelfish.settings", name: tr("settings.shortcut") })
+    // Quattro's scoped plugin registry only lists Shelfish itself; the bar
+    // widget registry snapshot lists every widget.
+    var registered = service && service.barWidgetRegistry ? service.barWidgetRegistry.widgets : null
+    if (registered) {
+      for (var rid in registered) {
+        var meta = registered[rid] && registered[rid].metadata ? registered[rid].metadata : {}
+        if (rid === "io.github.patrickfanella.shelfish" || rid === "omarchy.tray" || rid.indexOf("io.github.patrickfanella.shelfish.") === 0) continue
+        out.push({ id: rid, name: String(meta.displayName || meta.name || rid) })
+      }
+      out.sort(function(a, b) { return a.name.localeCompare(b.name) })
+      return out
+    }
     var installed = shell && shell.pluginRegistry ? shell.pluginRegistry.installedPlugins : null
     if (!installed) return out
     for (var id in installed) {
@@ -112,10 +124,10 @@ KeyboardPanel {
             width: groupLabel.implicitWidth + Style.space(20)
             height: Style.space(36)
             text: ""
-            selected: root.service && root.service.config.activeGroupId === modelData.id
+            selected: !!root.selectedGroup && root.selectedGroup.id === modelData.id
             bordered: true
             foreground: root.foreground
-            onClicked: root.service.setActiveGroup(modelData.id)
+            onClicked: root.service.selectedGroupId = modelData.id
 
             Text {
               id: groupLabel

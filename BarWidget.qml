@@ -1,6 +1,7 @@
 import QtQuick
 import qs.Ui
 import "I18n.js" as I18n
+import "SharedService.js" as SharedService
 
 BarWidget {
   id: root
@@ -10,26 +11,28 @@ BarWidget {
   property var registeredService: null
   readonly property bool opened: managerOpen
   function getSlots() {
-    var top = root
-    while (top && top.parent) top = top.parent
-    var found = []
-    if (!top) return found
-    var queue = [top]
-    while (queue.length > 0) {
-      var cur = queue.shift()
-      if (!cur) continue
-      if (cur.moduleName !== undefined && "activeItem" in cur) {
-        found.push(cur)
-      }
-      var ch = cur.children
-      if (ch && ch.length) {
-        for (var i = 0; i < ch.length; i++) queue.push(ch[i])
-      }
+    if (root.bar && root.bar.moduleSlots && root.bar.moduleSlots.length > 0) {
+      return root.bar.moduleSlots
     }
-    return found
+    var p = root.parent
+    while (p) {
+      if (p.moduleSlots && p.moduleSlots.length > 0) return p.moduleSlots
+      if (p.children && p.children.length > 0) {
+        var slots = []
+        for (var i = 0; i < p.children.length; i++) {
+          var c = p.children[i]
+          if (c && c.moduleName !== undefined && "activeItem" in c) slots.push(c)
+        }
+        if (slots.length > 0) return slots
+      }
+      p = p.parent
+    }
+    return []
   }
 
   readonly property var service: {
+    var s = SharedService.getService()
+    if (s) return s
     if (bar && bar.shell && typeof bar.shell.serviceFor === "function") {
       return bar.shell.serviceFor(moduleName)
     }
