@@ -377,8 +377,8 @@ function serializeConfig(config) {
   var normalized = normalizeConfig(config)
   function safeJson(val) {
     var s = JSON.stringify(val)
-    while (s.indexOf("}}") !== -1) s = s.replace(/\}\}/g, "} }")
-    while (s.indexOf("{{") !== -1) s = s.replace(/\{\{/g, "{ {")
+    s = s.replace(/\}{2,}/g, function(m) { return m.split("").join(" ") })
+    s = s.replace(/\{{2,}/g, function(m) { return m.split("").join(" ") })
     return s
   }
   return {

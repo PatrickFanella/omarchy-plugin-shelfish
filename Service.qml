@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import "Model.js" as Model
 import "I18n.js" as I18n
+import "SharedService.js" as SharedService
 
 Item {
   id: root
@@ -16,6 +17,12 @@ Item {
   readonly property var effectiveShell: hostBar && hostBar.shell ? hostBar.shell : root.shell
   readonly property var effectiveBar: hostBar ? hostBar : (root.shell ? root.shell.bar : null)
   property var config: Model.normalizeConfig({})
+  property string activeGroupId: config && config.activeGroupId ? config.activeGroupId : ""
+  onConfigChanged: {
+    var target = config && config.activeGroupId ? config.activeGroupId : ""
+    if (target !== activeGroupId) activeGroupId = target
+    if (target) selectedGroupId = target
+  }
   property string revealedGroupId: ""
   readonly property bool revealed: revealedGroupId !== ""
   property var managedIds: []
@@ -24,6 +31,11 @@ Item {
   property double suppressGroupToggleUntil: 0
   property bool suspended: false
   property var panelHosts: []
+  property var barWidgetRegistry: null
+  // Group being edited in the manager; it survives closing groups on the bar.
+  property string selectedGroupId: ""
+  readonly property var editGroup: Model.groupById(config, selectedGroupId)
+    || Model.activeGroup(config) || (config.groups.length ? config.groups[0] : null)
   property int revision: 0
 
   readonly property var activeGroup: Model.activeGroup(config)
@@ -38,7 +50,10 @@ Item {
   function getHostBar() {
     if (hostBar) return hostBar
     for (var i = 0; i < panelHosts.length; i++) {
-      if (panelHosts[i] && panelHosts[i].hostBar) return panelHosts[i].hostBar
+      if (panelHosts[i]) {
+        var b = panelHosts[i].hostBar || panelHosts[i].bar
+        if (b) return b
+      }
     }
     return null
   }
@@ -68,6 +83,13 @@ Item {
     var b = getHostBar()
     if (b && b.shell && b.shell.shellConfig) return b.shell.shellConfig
     if (shell && shell.shellConfig) return shell.shellConfig
+    try {
+      var fileText = userConfigFile.text()
+      if (fileText) {
+        var parsed = JSON.parse(fileText)
+        if (parsed && typeof parsed === "object") return parsed
+      }
+    } catch (e) {}
     if (b && b.barConfig) return { bar: b.barConfig }
     if (shell && shell.barConfig) return { bar: shell.barConfig }
     return null
@@ -113,7 +135,26 @@ Item {
     var next = Model.normalizeConfig(findEntry(raw) || {})
     if (JSON.stringify(config.groups) !== JSON.stringify(next.groups)) revealedGroupId = ""
     config = next
+    activeGroupId = next.activeGroupId || ""
     revision++
+  }
+
+  Timer {
+    id: settleTimer
+    property int pass: 0
+    interval: 250
+    repeat: true
+    onTriggered: {
+      root.reconcileSlots()
+      if (++pass >= 8) stop()
+    }
+  }
+
+  Process {
+    id: layoutWriter
+    stderr: StdioCollector {
+      onStreamFinished: if (text.trim()) console.warn("shelfish: apply-layout failed:", text.trim())
+    }
   }
 
   FileView {
@@ -127,42 +168,21 @@ Item {
     if (suspended || !groupingAvailable) return false
     var normalized = Model.normalizeConfig(next)
     var payload = Model.serializeConfig(normalized)
-    var wrote = false
-    var shell = effectiveShell
-    if (shell && typeof shell.mutateShellConfig === "function") {
-      try {
-        wrote = shell.mutateShellConfig(function(shellConfig) {
-          var entry = root.findEntry(shellConfig)
-          if (!entry) return
-          for (var key in payload) entry[key] = payload[key]
-          root.syncGroupEntries(shellConfig, normalized)
-        }) === true
-      } catch (err) {
-        wrote = false
-      }
-    }
-    if (!wrote) {
-      var raw = null
-      try { raw = JSON.parse(userConfigFile.text()) } catch (e) { raw = getEffectiveConfig() }
-      if (raw) {
-        var copy = JSON.parse(JSON.stringify(raw))
-        var entry = root.findEntry(copy)
-        if (entry) {
-          for (var key in payload) entry[key] = payload[key]
-          root.syncGroupEntries(copy, normalized)
-          var text = JSON.stringify(copy, null, 2) + "\n"
-          while (text.indexOf("}}") !== -1) text = text.replace(/\}\}/g, "} }")
-          while (text.indexOf("{{") !== -1) text = text.replace(/\{\{/g, "{ {")
-          userConfigFile.setText(text)
-          wrote = true
-        }
-      }
-    }
+    // Quattro refuses mutateShellConfig for non-`bar` plugins, so the helper
+    // writes shell.json and places group members beside their buttons.
+    layoutWriter.exec(["python3", sourceDir() + "/apply-layout.py", moduleName, groupPrefix,
+      sourceDir(), JSON.stringify(payload)])
+    var wrote = true
+    // The bar rebuilds its slots asynchronously after shell.json changes, and
+    // new slots start visible; re-apply visibility once they exist.
+    settleTimer.pass = 0
+    settleTimer.restart()
     if (wrote) {
       suppressStatusReveal()
       revealTimer.stop()
       revealedGroupId = ""
       config = normalized
+      activeGroupId = normalized.activeGroupId || ""
       revision++
     }
     return wrote
@@ -170,7 +190,9 @@ Item {
 
   function setActiveGroup(groupId) {
     if (groupId && !Model.groupById(config, groupId)) return false
-    var next = Model.normalizeConfig(config); next.activeGroupId = groupId
+    // Only the open group's members are loaded; switching groups rewrites the layout.
+    var next = Model.normalizeConfig(config)
+    next.activeGroupId = groupId
     return persist(next)
   }
   function createGroup(name) { return persist(Model.addGroup(config, name)) }
@@ -194,17 +216,19 @@ Item {
   function slots() {
     var all = []
     var liveHosts = []
-    var seenWindows = []
+    var seenBars = []
     for (var i = 0; i < panelHosts.length; i++) {
       var host = panelHosts[i]
       if (!host) continue
       try {
         if (typeof host.getSlots === "function" && host.parent !== undefined) {
           liveHosts.push(host)
+          var bar = host.hostBar || host.bar
           var top = host
           while (top && top.parent) top = top.parent
-          if (top && seenWindows.indexOf(top) !== -1) continue
-          if (top) seenWindows.push(top)
+          var dedupeKey = bar || top
+          if (dedupeKey && seenBars.indexOf(dedupeKey) !== -1) continue
+          if (dedupeKey) seenBars.push(dedupeKey)
 
           var s = host.getSlots()
           if (s && s.length) {
@@ -218,12 +242,12 @@ Item {
     if (liveHosts.length !== panelHosts.length) panelHosts = liveHosts
     if (all.length > 0) return all
 
-    var bar = getEffectiveBar()
-    if (!bar || !bar.moduleSlots) return []
-    if (Array.isArray(bar.moduleSlots)) return bar.moduleSlots
-    if (bar.moduleSlots.length !== undefined) {
+    var b = getEffectiveBar()
+    if (!b || !b.moduleSlots) return []
+    if (Array.isArray(b.moduleSlots)) return b.moduleSlots
+    if (b.moduleSlots.length !== undefined) {
       var arr = []
-      for (var k = 0; k < bar.moduleSlots.length; k++) arr.push(bar.moduleSlots[k])
+      for (var k = 0; k < b.moduleSlots.length; k++) arr.push(b.moduleSlots[k])
       return arr
     }
     return []
@@ -236,15 +260,10 @@ Item {
     for (var i = 0; i < managedIds.length; i++) restore[managedIds[i]] = true
     suspended = true
     revealTimer.stop()
-    var mutated = false
-    var shell = effectiveShell
-    if (groupingAvailable && shell && typeof shell.mutateShellConfig === "function") {
-      shell.mutateShellConfig(function(shellConfig) {
-        var layout = shellConfig && shellConfig.bar ? shellConfig.bar.layout : (shellConfig ? shellConfig.layout : null)
-        Model.removeGeneratedEntries(layout, root.groupPrefix)
-        mutated = true
-      })
-    }
+    // mutateShellConfig is gated to `bar` plugins under Quattro; the helper
+    // strips the generated group buttons instead.
+    if (groupingAvailable)
+      layoutWriter.exec(["python3", sourceDir() + "/apply-layout.py", moduleName, groupPrefix, sourceDir(), "--restore"])
     var all = slots()
     for (var s = 0; s < all.length; s++) {
       var slot = all[s]
@@ -257,7 +276,7 @@ Item {
     managedIds = []
     revealedGroupId = ""
     revision++
-    return mutated || !groupingAvailable
+    return true
   }
 
   function reconcileSlots() {
@@ -303,6 +322,7 @@ Item {
   function showGroup(id) {
     revealTimer.stop()
     if (!Model.groupById(config, id)) return
+    revealedGroupId = ""
     setActiveGroup(id)
   }
   function hide() {
@@ -312,11 +332,11 @@ Item {
   }
   function toggleGroup(id) {
     revealTimer.stop()
-    revealedGroupId = ""
-    if (config.activeGroupId === id) {
-      setActiveGroup("")
+    var isCurrent = (revealedGroupId ? revealedGroupId === id : config.activeGroupId === id)
+    if (isCurrent) {
+      hide()
     } else {
-      setActiveGroup(id)
+      showGroup(id)
     }
   }
   function show() { showGroup(config.activeGroupId || (config.groups[0] ? config.groups[0].id : "")) }
@@ -329,12 +349,17 @@ Item {
   function registerPanelHost(host) {
     if (host && panelHosts.indexOf(host) === -1) {
       var next = panelHosts.slice(); next.push(host); panelHosts = next
-      if (host.hostBar) registerHostBar(host.hostBar)
+      var b = host.hostBar || host.bar
+      if (b) registerHostBar(b)
       Qt.callLater(reconcileSlots)
     }
   }
   function unregisterPanelHost(host) { panelHosts = panelHosts.filter(function(item) { return item !== host }) }
-  function manage() { if (panelHosts.length && typeof panelHosts[0].openManager === "function") panelHosts[0].openManager() }
+  function manage() {
+    for (var i = 0; i < panelHosts.length; i++) {
+      if (panelHosts[i] && typeof panelHosts[i].openManager === "function") return panelHosts[i].openManager()
+    }
+  }
 
   function policy(id) { return config.policies[id] || { autoReveal: true, revealSeconds: 0 } }
   function pollStatus() {
@@ -380,7 +405,7 @@ Item {
     return {
       groupingAvailable: groupingAvailable,
       compatibilityMessage: compatibilityMessage,
-      activeGroupId: config.activeGroupId,
+      activeGroupId: config ? config.activeGroupId : "",
       revealedGroupId: revealedGroupId,
       managedWidgets: managedCount
     }
@@ -409,7 +434,7 @@ Item {
     }
   }
 
-  Component.onCompleted: { loadConfig(); Qt.callLater(ensureGroupEntries); Qt.callLater(reconcileSlots) }
+  Component.onCompleted: { SharedService.setService(root); loadConfig(); Qt.callLater(ensureGroupEntries); Qt.callLater(reconcileSlots) }
   onShellChanged: { loadConfig(); Qt.callLater(ensureGroupEntries); Qt.callLater(reconcileSlots) }
   onHostBarChanged: { loadConfig(); Qt.callLater(ensureGroupEntries); Qt.callLater(reconcileSlots) }
   Connections {
