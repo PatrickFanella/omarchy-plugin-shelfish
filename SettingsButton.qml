@@ -59,6 +59,11 @@ BarWidget {
 
   onParentChanged: syncHost()
   Component.onCompleted: syncHost()
+  Component.onDestruction: {
+    if (service && typeof service.unregisterPanelHost === "function") {
+      service.unregisterPanelHost(root)
+    }
+  }
   onServiceChanged: syncHost()
 
   implicitWidth: button.implicitWidth

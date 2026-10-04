@@ -84,4 +84,48 @@ assert.equal(shortcutLayout.left[1].id, "shelfish.group.one")
 assert.equal(shortcutLayout.left[2].id, "shelfish.group.one.settings")
 assert.deepEqual(Model.allWidgetIds({ groups: [{ widgets: ["shelfish.settings", "clock"] }] }), ["clock"])
 
+// Multi-group activeGroupId filtering test
+const multiLayout = {
+  center: [
+    { id: "clock" },
+    { id: "shelfish" },
+    { id: "widgetA", customOpt: 123 },
+    { id: "widgetB", customOpt: 456 }
+  ]
+}
+const groupsDef = [
+  { id: "grp1", name: "Group 1", widgets: ["widgetA"] },
+  { id: "grp2", name: "Group 2", widgets: ["widgetB"] }
+]
+const widgetConfigs = {}
+
+// Activate grp1
+assert.equal(Model.syncGroupEntries(multiLayout, groupsDef, "shelfish", "shelfish.group.", "/tmp/shelfish", "grp1", widgetConfigs), true)
+// Center should have: clock, shelfish, group.grp1, widgetA (from grp1), group.grp2 (WITHOUT widgetB!)
+const centerIds1 = multiLayout.center.map(e => e.id)
+assert.deepEqual(centerIds1, ["clock", "shelfish", "shelfish.group.grp1", "widgetA", "shelfish.group.grp2"])
+assert.equal(multiLayout.center[3].customOpt, 123)
+assert.equal(widgetConfigs["widgetB"].customOpt, 456)
+
+// Now activate grp2
+assert.equal(Model.syncGroupEntries(multiLayout, groupsDef, "shelfish", "shelfish.group.", "/tmp/shelfish", "grp2", widgetConfigs), true)
+const centerIds2 = multiLayout.center.map(e => e.id)
+assert.deepEqual(centerIds2, ["clock", "shelfish", "shelfish.group.grp1", "shelfish.group.grp2", "widgetB"])
+assert.equal(multiLayout.center[4].customOpt, 456)
+assert.equal(widgetConfigs["widgetA"].customOpt, 123)
+
+// Now collapse all groups (activeGroupId = "")
+assert.equal(Model.syncGroupEntries(multiLayout, groupsDef, "shelfish", "shelfish.group.", "/tmp/shelfish", "", widgetConfigs), true)
+const centerIds3 = multiLayout.center.map(e => e.id)
+assert.deepEqual(centerIds3, ["clock", "shelfish", "shelfish.group.grp1", "shelfish.group.grp2"])
+
+// Verify serializeConfig escapes consecutive double curly braces to protect Go templates (e.g. chezmoi)
+const safeSerialized = Model.serializeConfig({
+  groups: [{ id: "g1", name: "G1", widgets: ["w1"] }],
+  widgetConfigs: { w1: { id: "w1", nested: { a: 1 } } }
+})
+assert.equal(safeSerialized.widgetConfigs.includes("}}"), false)
+assert.equal(safeSerialized.widgetConfigs.includes("{{"), false)
+assert.equal(safeSerialized.widgetConfigs.includes("} }"), true)
+
 console.log("model tests passed")
