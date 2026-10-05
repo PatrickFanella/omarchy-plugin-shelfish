@@ -1,5 +1,14 @@
 # Shelfish
 
+<a href="https://subcult.tv">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/subcult-dark.svg">
+    <img src="docs/brand/subcult-light.svg" alt="SUBCULT" width="400">
+  </picture>
+</a>
+
+[SUBCULT](https://subcult.tv) · [Support on Patreon](https://patreon.com/subcult)
+
 Shelfish organizes existing Omarchy bar widgets into named, collapsible groups. It adds a settings button and one icon button per group while keeping each member widget's normal popup and interactions. Its interface is localized in ten languages.
 
 ## Compatibility and dependencies
@@ -92,3 +101,12 @@ In Omarchy 4.0.3+, third-party plugins are sandboxed behind capability-scoped fa
 - **Widget Option Preservation:** Custom widget configurations and options are preserved in `config.widgetConfigs` across group transitions so that user settings are retained when widgets are swapped.
 - **Window Deduplication and Lifecycle Management:** Slot discovery deduplicates traversals by Wayland window root, and group buttons cleanly unregister from the service upon destruction to prevent event loop leaks and invalid QML context evaluations.
 - **Fallback State:** When no usable slots or configuration are available, widgets remain visible, saved groups are retained, and an explicit compatibility message is displayed. Grouping resumes automatically when host slot discovery succeeds.
+
+## About SUBCULT and support
+
+Made by [Patrick Fanella](https://patrickfanella.co) as part of
+[SUBCULT](https://subcult.tv). Explore the tools and projects at
+**[subcult.tv](https://subcult.tv)**.
+
+If this plugin is useful to you, **[support SUBCULT on Patreon](https://patreon.com/subcult)**
+to help fund its development and the wider project.
