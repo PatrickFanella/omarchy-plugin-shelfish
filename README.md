@@ -1,11 +1,9 @@
 # Shelfish
 
-<a href="https://subcult.tv">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/subcult-dark.svg">
-    <img src="docs/brand/subcult-light.svg" alt="SUBCULT" width="400">
-  </picture>
-</a>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/brand/lockup.svg">
+  <img src="docs/brand/mark-mono-light.svg" alt="Shelfish logo. A shelf: a horizontal rule with two small boxes sitting on it and a chevron in the third place, for a collapsed group." height="80">
+</picture>
 
 [SUBCULT](https://subcult.tv) · [Support on Patreon](https://patreon.com/subcult)
 
@@ -103,6 +101,13 @@ In Omarchy 4.0.3+, third-party plugins are sandboxed behind capability-scoped fa
 - **Fallback State:** When no usable slots or configuration are available, widgets remain visible, saved groups are retained, and an explicit compatibility message is displayed. Grouping resumes automatically when host slot discovery succeeds.
 
 ## About SUBCULT and support
+
+<a href="https://subcult.tv">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/subcult-dark.svg">
+    <img src="docs/brand/subcult-light.svg" alt="SUBCULT" width="240">
+  </picture>
+</a>
 
 Made by [Patrick Fanella](https://patrickfanella.co) as part of
 [SUBCULT](https://subcult.tv). Explore the tools and projects at
