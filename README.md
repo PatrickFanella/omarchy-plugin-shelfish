@@ -7,111 +7,130 @@
 
 [SUBCULT](https://subcult.tv) · [Support on Patreon](https://patreon.com/subcult)
 
-Shelfish organizes existing Omarchy bar widgets into named, collapsible groups. It adds a settings button and one icon button per group while keeping each member widget's normal popup and interactions. Its interface is localized in ten languages.
+Shelfish is an [Omarchy](https://github.com/basecamp/omarchy) bar plugin that puts your existing bar widgets on shelves: named groups that stay collapsed behind one icon until you open them. It is for Omarchy users whose top bar has more widgets than room. Each widget keeps its normal popup and clicks.
 
-## Compatibility and dependencies
+Version 1.1.1 is the latest tagged release. Shelfish depends on an internal Omarchy shell API (`moduleSlots`) that can change between Omarchy releases, and it cannot put widgets back in the exact positions they had before you grouped them.
 
-Shelfish targets Omarchy 4 with the Quattro shell. It uses the standard Omarchy bar plugin API and Quattro's internal `shell.bar.moduleSlots` API. Changes to that internal API may break group visibility management.
+![Shelfish marketplace preview](preview.png)
 
-Shelfish has no third-party runtime dependencies.
+## Features
 
-## Languages
+- Named, ordered groups of installed bar widgets, each with its own icon and opening direction (left or right).
+- One icon button per group in the bar, plus a settings button. Click a group icon to open it, click again to close it, right-click to open settings, middle-click to close all groups.
+- A settings panel to create groups, add widgets, and reorder groups and members with Up and Down.
+- A `Shelfish settings` shortcut you can add to any group to put a second settings icon beside it.
+- Reveal on status: a group opens for a few seconds when a watched member's status changes. You can turn this off or change the duration per widget.
+- Only the open group's widgets are loaded into the bar layout. Closed groups keep their members' settings, so hidden widgets are not loaded on every monitor.
+- Restore command that removes every generated group entry and makes all grouped widgets visible again.
+- Interface in English, German, Spanish, French, Italian, Brazilian Portuguese, Dutch, Polish, Croatian and Simplified Chinese, picked from the shell locale with English as the fallback. The plugin name, description and advanced settings labels stay in English because Omarchy manifests cannot be localized.
+- No network access, no elevated privileges and no third-party runtime dependencies.
 
-Shelfish supports English, German, Spanish, French, Italian, Brazilian Portuguese, Dutch, Polish, Croatian, and Simplified Chinese. It detects the locale from the shell automatically and falls back to English when necessary.
+## Quick start
 
-Omarchy does not support localized plugin manifest fields. The plugin name, description, category, and advanced schema metadata therefore remain in English.
+Requirements: Omarchy 4 with the Quattro shell, and `python3` (Shelfish saves the bar layout through its bundled Python helper).
 
-## Install
+Install and enable the plugin:
 
 ```sh
-omarchy plugin add https://github.com/patrickfanella/omarchy-plugin-shelfish.git --enable
+omarchy plugin add https://github.com/subculture-collective/omarchy-plugin-shelfish.git --enable
 ```
 
-Add the Shelfish bar widget through Omarchy's bar settings if it is not added automatically.
-
-## Set up and use groups
+If the Shelfish widget does not appear, add it through Omarchy's bar settings. Then:
 
 1. Select the sliders icon to open Shelfish settings.
 2. Create or select a group.
-3. Set its name, icon, and direction.
+3. Set its name, icon and direction.
 4. Add installed bar plugins from the available plugins list.
 5. Use Up and Down to order groups and members.
 
-Select a group icon to reveal that group's widgets. Select it again to close the group. Right-click a group icon to open settings. Middle-click one to close all groups.
+### Commands
 
-The available-plugin list also includes a `Shelfish settings` shortcut. Add it to any group to place a second settings icon beside that group. This shortcut opens the manager directly and does not toggle or reveal the group. The primary Shelfish settings icon remains a stable anchor and stays outside groups.
+The plugin registers an IPC target named `io.github.patrickfanella.shelfish`:
 
-Shelfish can reveal a group when a member's watched status changes. Advanced status paths use `plugin.id=path|nested.path;other.id=count`. Shelfish also reads explicit `shelfishStatus` and legacy `omatenderStatus` properties. It does not infer status from unrelated widget internals. Per-widget policies can disable automatic reveal or override its duration.
+| Command | Effect |
+| --- | --- |
+| `manage` | Open Shelfish settings. |
+| `show`, `hide`, `toggle` | Open the active group (or the first group), close all groups, or switch between the two. |
+| `toggleGroup <id>`, `showGroup <id>` | Toggle or show one group. |
+| `status` | Print the current state as JSON. |
+| `restoreAll` (alias `restore`) | Remove generated group entries and show every grouped widget. Prints `ok` or `failed`. |
 
-Status snapshots accept only `null`, booleans, finite numbers, and strings. Shelfish limits path count and depth, truncates scalar strings, and caps each aggregate snapshot.
+Example:
 
-## Layout changes
+```sh
+omarchy-shell io.github.patrickfanella.shelfish status
+```
 
-Shelfish stores its settings on its own bar layout entry. Omarchy Quattro only lets `bar`-kind plugins call `mutateShellConfig`, so Shelfish saves through `apply-layout.py`. The helper writes the settings to that entry and places the open group's members beside its group button. It replaces `shell.json` atomically. Groups follow manager order. Members follow their order inside each group. A right-facing group uses `group icon, members`; a left-facing group uses `members, group icon`.
+### Remove
 
-Only the open group's members are in the layout. Closed groups keep their members' settings in `widgetConfigs`, so hidden widgets are not loaded on every bar. Opening or closing a group saves the layout, and the bar rebuilds.
-
-Member entries, including duplicate instances, keep their complete configuration. Missing entries are skipped. A widget can belong to only one Shelfish group. The native `omarchy.tray` entry cannot be grouped.
-
-Shelfish does not remember a member's original layout position.
-
-## Restore and remove
-
-Restore removes every generated group entry and makes all managed widget instances visible. It does not restore their historical positions. Run restore immediately before removing the plugin:
+Restore first, then remove the plugin straight away:
 
 ```sh
 omarchy-shell io.github.patrickfanella.shelfish restoreAll
-```
-
-Then immediately remove Shelfish:
-
-```sh
 omarchy plugin remove io.github.patrickfanella.shelfish
 ```
 
-## Permissions and security
+Restore makes every grouped widget visible again but does not put it back in its original position.
 
-Omarchy plugins run unsandboxed. Shelfish changes `~/.config/omarchy/shell.json` by running its bundled `apply-layout.py` helper with `python3`. It does not use the network or request elevated privileges.
+## Configuration
 
-## Development and validation
+Most people only need the settings panel. Shelfish stores everything on its own entry in `~/.config/omarchy/shell.json`. The advanced keys are:
 
-Run all checks from the repository root:
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `groups` | one empty group named `Shelfish` | JSON list of groups: `id`, `name`, `icon`, `direction` and `widgets`. |
+| `activeGroupId` | `default` | The open group, or empty when all groups are closed. |
+| `watchedPaths` | empty | Status rules in the form `plugin.id=path\|nested.path;other.id=count`. |
+| `policies` | `{}` | JSON keyed by widget ID. Each value may set `autoReveal` and `revealSeconds`. |
+| `revealSeconds` | `8` | How long a group stays open after a status change, from 1 to 300 seconds. |
+
+Besides `watchedPaths`, Shelfish reads explicit `shelfishStatus` and legacy `omatenderStatus` properties on member widgets. It does not guess status from other widget internals. Status snapshots accept only `null`, booleans, finite numbers and strings; Shelfish limits path count and depth, truncates strings and caps the size of each snapshot. Member status is polled every 500 ms.
+
+### How layout changes work
+
+Omarchy Quattro only lets `bar`-kind plugins call `mutateShellConfig`, so Shelfish saves through `apply-layout.py`. The helper writes the settings to the Shelfish entry, places the open group's members next to its group button, and replaces `shell.json` atomically. Groups follow the order in settings, and members follow their order inside each group. A right-facing group is laid out as `group icon, members`; a left-facing group as `members, group icon`.
+
+Closed groups keep their members' full entries, including duplicate instances, in `widgetConfigs`. Opening or closing a group saves the layout and the bar rebuilds. Missing entries are skipped. A widget can belong to only one group, and the native `omarchy.tray` entry cannot be grouped.
+
+If Shelfish finds no usable module slots, widgets stay visible, saved groups are kept, and the settings panel shows a compatibility message. Grouping resumes when slot discovery works again.
+
+## Security
+
+Omarchy plugins run unsandboxed. Shelfish edits `~/.config/omarchy/shell.json` by running its bundled `apply-layout.py` with `python3`. It does not use the network or ask for elevated privileges.
+
+## Known limitations
+
+- Depends on Quickshell's Wayland window scene graph and the shell's internal `moduleSlots` API.
+- Groups only installed bar plugins that have live module slots and registered entries in `shell.json`.
+- Cannot restore pre-group layout positions.
+
+## Release
+
+Omarchy installs the plugin from its Git repository, so there is no build step. Releases are Git tags (`v1.0.0` through `v1.1.1`); [CHANGELOG.md](CHANGELOG.md) lists the changes and [PUBLISHING.md](PUBLISHING.md) has the release checklist. Marketplace submission is planned but has not been made.
+
+## Project layout
+
+| Path | Contents |
+| --- | --- |
+| `manifest.json` | Plugin ID, entry points and settings schema. |
+| `Service.qml` | Shared service: groups, status polling, reveal timers and IPC. |
+| `BarWidget.qml`, `GroupButton.qml`, `SettingsButton.qml` | Bar buttons. |
+| `ManagePanel.qml` | Settings panel. |
+| `Model.js`, `SharedService.js`, `I18n.js` | Group model, shared service lookup and translations. |
+| `apply-layout.py` | Writes the bar layout to `shell.json`. |
+| `tests/` | Node tests and `check-all.sh`. |
+
+## Contributing
+
+Report bugs and request features in [GitHub issues](https://github.com/subculture-collective/omarchy-plugin-shelfish/issues). Send code as pull requests on GitHub against `main`. CI runs `tests/check-all.sh` (model, localization, scoped shell and release tests) on every pull request. Run the same checks locally:
 
 ```sh
 tests/check-all.sh
 omarchy plugin validate .
-qmllint BarWidget.qml GroupButton.qml ManagePanel.qml Service.qml
 ```
 
-The test script runs model, localization, scoped shell compatibility, and release metadata tests, then runs Omarchy validation when the CLI is installed. Standalone `qmllint` is not used because it cannot resolve all Quickshell runtime types; releases also receive a controlled live shell check.
+`check-all.sh` also runs `omarchy plugin validate .` when the `omarchy` CLI is installed. Standalone `qmllint` cannot resolve every Quickshell runtime type, so test QML changes in a live shell as well.
 
-## Known limitations
+## License
 
-- Shelfish depends on Quickshell's Wayland window scene graph and `moduleSlots` architecture.
-- It groups installed bar plugins with live module slots and registered entries in `shell.json`.
-- It cannot restore pre-group layout positions.
-
-## Shell API compatibility and multi-monitor architecture
-
-In Omarchy 4.0.3+, third-party plugins are sandboxed behind capability-scoped facades (`PluginShellApi` and `PluginBarApi`). Shelfish supports this architecture seamlessly:
-
-- **Layout-Level Active Group Mounting:** Rather than mounting all configured widgets simultaneously and relying purely on visual hiding, Shelfish mounts only the currently active group in `bar.layout.center`. Inactive group widgets are omitted from the layout array, preventing Quickshell from instantiating redundant `ModuleSlot` and `registryLoader` instances across multi-monitor setups.
-- **Widget Option Preservation:** Custom widget configurations and options are preserved in `config.widgetConfigs` across group transitions so that user settings are retained when widgets are swapped.
-- **Window Deduplication and Lifecycle Management:** Slot discovery deduplicates traversals by Wayland window root, and group buttons cleanly unregister from the service upon destruction to prevent event loop leaks and invalid QML context evaluations.
-- **Fallback State:** When no usable slots or configuration are available, widgets remain visible, saved groups are retained, and an explicit compatibility message is displayed. Grouping resumes automatically when host slot discovery succeeds.
-
-## About SUBCULT and support
-
-<a href="https://subcult.tv">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/subcult-dark.svg">
-    <img src="docs/brand/subcult-light.svg" alt="SUBCULT" width="240">
-  </picture>
-</a>
-
-Made by [Patrick Fanella](https://patrickfanella.co) as part of
-[SUBCULT](https://subcult.tv). Explore the tools and projects at
-**[subcult.tv](https://subcult.tv)**.
-
-If this plugin is useful to you, **[support SUBCULT on Patreon](https://patreon.com/subcult)**
-to help fund its development and the wider project.
+[MIT](LICENSE). Copyright Patrick Fanella. Made as part of [SUBCULT](https://subcult.tv).
